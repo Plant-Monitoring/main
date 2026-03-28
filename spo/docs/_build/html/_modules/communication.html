@@ -1,0 +1,338 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>communication &mdash; STM32_Communication 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=f6245a2f"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            STM32_Communication
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API Reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">STM32_Communication</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">communication</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for communication</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">serial</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">serial.tools.list_ports</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">struct</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">STM32</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Interface for communicating with an STM32 device over serial.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">CRC16_POLY</span> <span class="o">=</span> <span class="mh">0xA001</span> 
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;CRC-16/Modbus polynomial in reflected form.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="STM32.__init__"><a class="viewcode-back" href="../api.html#communication.STM32.__init__">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize serial connection to STM32 device.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            port: Serial port name (e.g., &#39;COM3&#39; on Windows, &#39;/dev/ttyUSB0&#39; on Linux)</span>
+<span class="sd">            </span>
+<span class="sd">        Raises:</span>
+<span class="sd">            serial.SerialException: If the port cannot be opened</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ser</span> <span class="o">=</span> <span class="n">serial</span><span class="o">.</span><span class="n">Serial</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">baudrate</span><span class="o">=</span><span class="mi">115200</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="STM32.send_command"><a class="viewcode-back" href="../api.html#communication.STM32.send_command">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">send_command</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">command</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Send a text command to the STM32 device.</span>
+<span class="sd">        </span>
+<span class="sd">        Commands are sent as UTF-8 encoded strings with a newline terminator.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            command: Command string to send (without newline)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ser</span><span class="o">.</span><span class="n">write</span><span class="p">((</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="STM32.receive_line"><a class="viewcode-back" href="../api.html#communication.STM32.receive_line">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">receive_line</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Read a single line from the serial port.</span>
+<span class="sd">        </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Bytes object containing the line (including newline if present)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ser</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="STM32.receive_data"><a class="viewcode-back" href="../api.html#communication.STM32.receive_data">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">receive_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span> <span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Read exactly `size` bytes from the serial port.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            size: Number of bytes to read</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Bytes object containing the received data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">ser</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">size</span><span class="p">)</span></div>
+    
+<div class="viewcode-block" id="STM32.receive_file"><a class="viewcode-back" href="../api.html#communication.STM32.receive_file">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">receive_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Request and receive a file from the STM32 device.</span>
+<span class="sd">        </span>
+<span class="sd">        Sends a GET command and parses the response metadata to determine</span>
+<span class="sd">        the file size, then reads the raw file data.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            file: Name of the file to request</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Raw bytes of the file (including packet framing)</span>
+<span class="sd">            </span>
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If the response metadata format is unexpected</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_command</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;GET </span><span class="si">{</span><span class="n">file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">receive_line</span><span class="p">()</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">receive_line</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;bytes&quot;</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">receive_data</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="mi">11</span> <span class="p">:</span> <span class="n">ind</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]))</span></div>
+
+<div class="viewcode-block" id="STM32.unstuff"><a class="viewcode-back" href="../api.html#communication.STM32.unstuff">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unstuff</span><span class="p">(</span><span class="n">data</span> <span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Remove byte stuffing from raw data.</span>
+<span class="sd">        </span>
+<span class="sd">        Decodes escaped sequences:\n</span>
+<span class="sd">        - 0xFE 0x00 → 0xFE\n</span>
+<span class="sd">        - 0xFE 0x01 → 0xFF\n</span>
+<span class="sd">        - 0xFE 0xE4 → 0x1A (Ctrl+Z)\n</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            data: Stuffed bytes to decode</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Unstuffed bytes</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">retData</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;&#39;</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="sa">b</span><span class="s1">&#39;</span><span class="se">\xfe</span><span class="s1">&#39;</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+                <span class="n">retData</span> <span class="o">+=</span> <span class="nb">bytes</span><span class="p">([</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">^</span> <span class="n">data</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]])</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">2</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">retData</span> <span class="o">+=</span> <span class="n">data</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">return</span> <span class="n">retData</span></div>
+    
+<div class="viewcode-block" id="STM32.crc16_update"><a class="viewcode-back" href="../api.html#communication.STM32.crc16_update">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">crc16_update</span><span class="p">(</span><span class="n">crc</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Update CRC with one byte.</span>
+<span class="sd">        </span>
+<span class="sd">        Internal method used by crc16_compute. Implements the</span>
+<span class="sd">        CRC-16/Modbus algorithm.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:\n</span>
+<span class="sd">            crc: Current CRC value (0-0xFFFF)\n</span>
+<span class="sd">            data: Byte to process (0-0xFF)\n</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Updated CRC value (0-0xFFFF)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">crc</span> <span class="o">^=</span> <span class="n">data</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">crc</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">crc</span> <span class="o">=</span> <span class="p">(</span><span class="n">crc</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="n">STM32</span><span class="o">.</span><span class="n">CRC16_POLY</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">crc</span> <span class="o">=</span> <span class="n">crc</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">crc</span> <span class="o">&amp;</span> <span class="mh">0xFFFF</span></div>
+
+<div class="viewcode-block" id="STM32.crc16_compute"><a class="viewcode-back" href="../api.html#communication.STM32.crc16_compute">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">crc16_compute</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute CRC-16/Modbus over the given data.</span>
+<span class="sd">        </span>
+<span class="sd">        Algorithm:\n</span>
+<span class="sd">        - Polynomial: 0xA001\n</span>
+<span class="sd">        - Initial value: 0xFFFF\n</span>
+<span class="sd">        - Byte order: Little-endian\n</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            data: Bytes to compute CRC over</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            16-bit CRC value (0-0xFFFF)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">crc</span> <span class="o">=</span> <span class="mh">0xFFFF</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="n">crc</span> <span class="o">=</span> <span class="n">STM32</span><span class="o">.</span><span class="n">crc16_update</span><span class="p">(</span><span class="n">crc</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">crc</span> <span class="o">&amp;</span> <span class="mh">0xFFFF</span></div>
+    
+<div class="viewcode-block" id="STM32.parse_packet"><a class="viewcode-back" href="../api.html#communication.STM32.parse_packet">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_packet</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse a single packet from raw data.</span>
+<span class="sd">        </span>
+<span class="sd">        Extracts timestamp, chunks, and validates CRC. The packet must start</span>
+<span class="sd">        with sync marker 0xFFFF.</span>
+<span class="sd">        </span>
+<span class="sd">        Packet structure (after unstuffing):\n</span>
+<span class="sd">        - Timestamp: uint32_t (4 bytes, little-endian)\n  </span>
+<span class="sd">        - Packet Size: uint16_t (2 bytes, little-endian) = unstuffed size - 2  \n</span>
+<span class="sd">        - Chunks: Variable (see parse_chunks) \n</span>
+<span class="sd">        - CRC16: uint16_t (2 bytes, little-endian)  \n</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            data: Raw bytes starting with sync marker</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Dictionary with keys &#39;timestamp&#39; (int) and &#39;chunks&#39; (dict of chunk_id -&gt; samples)</span>
+<span class="sd">            Returns None if packet is invalid or CRC mismatch</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">data</span><span class="p">[:</span> <span class="mi">2</span><span class="p">]</span> <span class="o">!=</span> <span class="sa">b</span><span class="s1">&#39;</span><span class="se">\xff\xff</span><span class="s1">&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+                
+        <span class="n">unstuffed</span> <span class="o">=</span> <span class="n">STM32</span><span class="o">.</span><span class="n">unstuff</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">3</span><span class="p">:])</span>
+        <span class="n">packetNum</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">timeStamp</span> <span class="o">=</span> <span class="nb">int</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">unstuffed</span><span class="p">[</span><span class="mi">0</span> <span class="p">:</span> <span class="mi">4</span><span class="p">],</span> <span class="n">byteorder</span><span class="o">=</span><span class="s1">&#39;little&#39;</span><span class="p">)</span>
+
+        <span class="n">packetSizeEnc</span> <span class="o">=</span> <span class="nb">int</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">unstuffed</span><span class="p">[</span><span class="mi">4</span> <span class="p">:</span> <span class="mi">6</span><span class="p">],</span> <span class="n">byteorder</span><span class="o">=</span><span class="s1">&#39;little&#39;</span><span class="p">)</span>
+        <span class="n">packetSize</span> <span class="o">=</span> <span class="n">packetSizeEnc</span> <span class="o">+</span> <span class="mi">1</span>
+
+        <span class="n">crcReceived</span> <span class="o">=</span> <span class="nb">int</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">unstuffed</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span> <span class="p">:</span> <span class="p">],</span> <span class="n">byteorder</span><span class="o">=</span><span class="s1">&#39;little&#39;</span><span class="p">)</span>
+        <span class="n">crcComputed</span> <span class="o">=</span> <span class="n">STM32</span><span class="o">.</span><span class="n">crc16_compute</span><span class="p">(</span><span class="n">unstuffed</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">crcComputed</span> <span class="o">!=</span> <span class="n">crcReceived</span> <span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;GLUPSI&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        
+        <span class="n">chunksData</span> <span class="o">=</span> <span class="n">unstuffed</span><span class="p">[</span><span class="mi">6</span> <span class="p">:</span> <span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">chunks</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">pos</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunksData</span><span class="p">):</span>
+            <span class="n">chunkId</span> <span class="o">=</span> <span class="n">chunksData</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span>
+            <span class="n">chunkSizeEnc</span> <span class="o">=</span> <span class="nb">int</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">chunksData</span><span class="p">[</span><span class="n">pos</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">pos</span> <span class="o">+</span> <span class="mi">3</span><span class="p">],</span> <span class="n">byteorder</span><span class="o">=</span><span class="s1">&#39;little&#39;</span><span class="p">)</span>
+            <span class="n">chunkSize</span> <span class="o">=</span> <span class="n">chunkSizeEnc</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">chunksData</span><span class="p">[</span><span class="n">pos</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]</span>
+            <span class="n">chunk</span> <span class="o">=</span> <span class="n">chunksData</span><span class="p">[</span><span class="n">pos</span> <span class="o">+</span> <span class="mi">4</span> <span class="p">:</span> <span class="n">pos</span> <span class="o">+</span> <span class="mi">4</span> <span class="o">+</span> <span class="n">chunkSize</span><span class="p">]</span>
+            
+            <span class="n">samples</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">chunkSize</span><span class="p">,</span> <span class="mi">6</span><span class="p">):</span>
+                <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="s1">&#39;&lt;hhh&#39;</span><span class="p">,</span> <span class="n">chunk</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">6</span><span class="p">])</span>
+                <span class="n">samples</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">))</span>
+            
+            <span class="n">chunks</span><span class="p">[</span><span class="n">chunkId</span><span class="p">]</span> <span class="o">=</span> <span class="n">samples</span>
+            <span class="n">pos</span> <span class="o">+=</span> <span class="mi">4</span> <span class="o">+</span> <span class="n">chunkSize</span>
+
+
+        <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;timestamp&#39;</span><span class="p">:</span> <span class="n">timeStamp</span><span class="p">,</span> <span class="s1">&#39;chunks&#39;</span><span class="p">:</span> <span class="n">chunks</span><span class="p">}</span></div>
+    
+<div class="viewcode-block" id="STM32.parse_data"><a class="viewcode-back" href="../api.html#communication.STM32.parse_data">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_data</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse multiple concatenated packets from a data stream.</span>
+<span class="sd">        </span>
+<span class="sd">        Scans for sync markers (0xFFFF) and extracts packets sequentially.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            data: Raw bytes containing one or more packets</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            List of parsed packet dictionaries (None for invalid packets)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">markers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">data</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="sa">b</span><span class="s1">&#39;</span><span class="se">\xff\xff</span><span class="s1">&#39;</span><span class="p">:</span>
+                <span class="n">markers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+
+        <span class="n">parsedData</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">markers</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">parsedData</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">STM32</span><span class="o">.</span><span class="n">parse_packet</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">markers</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">:</span> <span class="n">markers</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]))</span>
+        
+        <span class="k">return</span> <span class="n">parsedData</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Plant-Monitor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,312 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Reference &mdash; STM32_Communication 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=f6245a2f"></script>
+      <script src="_static/doctools.js?v=888ff710"></script>
+      <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Usage Guide" href="usage.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            STM32_Communication
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#stm32-class">STM32 Class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#methods">Methods</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#communication.STM32.__init__"><code class="docutils literal notranslate"><span class="pre">STM32.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#communication.STM32.send_command"><code class="docutils literal notranslate"><span class="pre">STM32.send_command()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#communication.STM32.receive_line"><code class="docutils literal notranslate"><span class="pre">STM32.receive_line()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#communication.STM32.receive_data"><code class="docutils literal notranslate"><span class="pre">STM32.receive_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#communication.STM32.receive_file"><code class="docutils literal notranslate"><span class="pre">STM32.receive_file()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#communication.STM32.unstuff"><code class="docutils literal notranslate"><span class="pre">STM32.unstuff()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#communication.STM32.crc16_update"><code class="docutils literal notranslate"><span class="pre">STM32.crc16_update()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#communication.STM32.crc16_compute"><code class="docutils literal notranslate"><span class="pre">STM32.crc16_compute()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#communication.STM32.parse_packet"><code class="docutils literal notranslate"><span class="pre">STM32.parse_packet()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#communication.STM32.parse_data"><code class="docutils literal notranslate"><span class="pre">STM32.parse_data()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#constants">Constants</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#STM32.CRC16_POLY"><code class="docutils literal notranslate"><span class="pre">STM32.CRC16_POLY</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">STM32_Communication</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">API Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/api.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Permalink to this heading"></a></h1>
+<section id="stm32-class">
+<h2>STM32 Class<a class="headerlink" href="#stm32-class" title="Permalink to this heading"></a></h2>
+</section>
+<section id="methods">
+<h2>Methods<a class="headerlink" href="#methods" title="Permalink to this heading"></a></h2>
+<dl class="py method">
+<dt class="sig sig-object py" id="communication.STM32.__init__">
+<span class="sig-prename descclassname"><span class="pre">STM32.</span></span><span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">port</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/communication.html#STM32.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#communication.STM32.__init__" title="Permalink to this definition"></a></dt>
+<dd><p>Initialize serial connection to STM32 device.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>port</strong> – Serial port name (e.g., ‘COM3’ on Windows, ‘/dev/ttyUSB0’ on Linux)</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>serial.SerialException</strong> – If the port cannot be opened</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="communication.STM32.send_command">
+<span class="sig-prename descclassname"><span class="pre">STM32.</span></span><span class="sig-name descname"><span class="pre">send_command</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">command</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/communication.html#STM32.send_command"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#communication.STM32.send_command" title="Permalink to this definition"></a></dt>
+<dd><p>Send a text command to the STM32 device.</p>
+<p>Commands are sent as UTF-8 encoded strings with a newline terminator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>command</strong> – Command string to send (without newline)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="communication.STM32.receive_line">
+<span class="sig-prename descclassname"><span class="pre">STM32.</span></span><span class="sig-name descname"><span class="pre">receive_line</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bytes</span></span></span><a class="reference internal" href="_modules/communication.html#STM32.receive_line"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#communication.STM32.receive_line" title="Permalink to this definition"></a></dt>
+<dd><p>Read a single line from the serial port.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Bytes object containing the line (including newline if present)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="communication.STM32.receive_data">
+<span class="sig-prename descclassname"><span class="pre">STM32.</span></span><span class="sig-name descname"><span class="pre">receive_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bytes</span></span></span><a class="reference internal" href="_modules/communication.html#STM32.receive_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#communication.STM32.receive_data" title="Permalink to this definition"></a></dt>
+<dd><p>Read exactly <cite>size</cite> bytes from the serial port.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>size</strong> – Number of bytes to read</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Bytes object containing the received data</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="communication.STM32.receive_file">
+<span class="sig-prename descclassname"><span class="pre">STM32.</span></span><span class="sig-name descname"><span class="pre">receive_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bytes</span></span></span><a class="reference internal" href="_modules/communication.html#STM32.receive_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#communication.STM32.receive_file" title="Permalink to this definition"></a></dt>
+<dd><p>Request and receive a file from the STM32 device.</p>
+<p>Sends a GET command and parses the response metadata to determine
+the file size, then reads the raw file data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file</strong> – Name of the file to request</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Raw bytes of the file (including packet framing)</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ValueError</strong> – If the response metadata format is unexpected</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="communication.STM32.unstuff">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">STM32.</span></span><span class="sig-name descname"><span class="pre">unstuff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bytes</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bytes</span></span></span><a class="reference internal" href="_modules/communication.html#STM32.unstuff"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#communication.STM32.unstuff" title="Permalink to this definition"></a></dt>
+<dd><p>Remove byte stuffing from raw data.</p>
+<p>Decodes escaped sequences:</p>
+<ul class="simple">
+<li><p>0xFE 0x00 → 0xFE</p></li>
+<li><p>0xFE 0x01 → 0xFF</p></li>
+<li><p>0xFE 0xE4 → 0x1A (Ctrl+Z)</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> – Stuffed bytes to decode</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Unstuffed bytes</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="communication.STM32.crc16_update">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">STM32.</span></span><span class="sig-name descname"><span class="pre">crc16_update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">crc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/communication.html#STM32.crc16_update"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#communication.STM32.crc16_update" title="Permalink to this definition"></a></dt>
+<dd><p>Update CRC with one byte.</p>
+<p>Internal method used by crc16_compute. Implements the
+CRC-16/Modbus algorithm.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>crc</strong> – Current CRC value (0-0xFFFF)</p></li>
+<li><p><strong>data</strong> – Byte to process (0-0xFF)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Updated CRC value (0-0xFFFF)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="communication.STM32.crc16_compute">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">STM32.</span></span><span class="sig-name descname"><span class="pre">crc16_compute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="reference internal" href="_modules/communication.html#STM32.crc16_compute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#communication.STM32.crc16_compute" title="Permalink to this definition"></a></dt>
+<dd><p>Compute CRC-16/Modbus over the given data.</p>
+<p>Algorithm:</p>
+<ul class="simple">
+<li><p>Polynomial: 0xA001</p></li>
+<li><p>Initial value: 0xFFFF</p></li>
+<li><p>Byte order: Little-endian</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> – Bytes to compute CRC over</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>16-bit CRC value (0-0xFFFF)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="communication.STM32.parse_packet">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">STM32.</span></span><span class="sig-name descname"><span class="pre">parse_packet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bytes</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bytes</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="_modules/communication.html#STM32.parse_packet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#communication.STM32.parse_packet" title="Permalink to this definition"></a></dt>
+<dd><p>Parse a single packet from raw data.</p>
+<p>Extracts timestamp, chunks, and validates CRC. The packet must start
+with sync marker 0xFFFF.</p>
+<p>Packet structure (after unstuffing):</p>
+<ul class="simple">
+<li><p>Timestamp: uint32_t (4 bytes, little-endian)</p></li>
+<li><p>Packet Size: uint16_t (2 bytes, little-endian) = unstuffed size - 2</p></li>
+<li><p>Chunks: Variable (see parse_chunks)</p></li>
+<li><p>CRC16: uint16_t (2 bytes, little-endian)</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> – Raw bytes starting with sync marker</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary with keys ‘timestamp’ (int) and ‘chunks’ (dict of chunk_id -&gt; samples)
+Returns None if packet is invalid or CRC mismatch</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="communication.STM32.parse_data">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">STM32.</span></span><span class="sig-name descname"><span class="pre">parse_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/communication.html#STM32.parse_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#communication.STM32.parse_data" title="Permalink to this definition"></a></dt>
+<dd><p>Parse multiple concatenated packets from a data stream.</p>
+<p>Scans for sync markers (0xFFFF) and extracts packets sequentially.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> – Raw bytes containing one or more packets</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of parsed packet dictionaries (None for invalid packets)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="constants">
+<h2>Constants<a class="headerlink" href="#constants" title="Permalink to this heading"></a></h2>
+<dl class="py data">
+<dt class="sig sig-object py" id="STM32.CRC16_POLY">
+<span class="sig-prename descclassname"><span class="pre">STM32.</span></span><span class="sig-name descname"><span class="pre">CRC16_POLY</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0xA001</span></em><a class="headerlink" href="#STM32.CRC16_POLY" title="Permalink to this definition"></a></dt>
+<dd><p>CRC-16/Modbus polynomial in reflected form.</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="usage.html" class="btn btn-neutral float-left" title="Usage Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Plant-Monitor.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
