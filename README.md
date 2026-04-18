@@ -1,75 +1,43 @@
-# 🌱 Sistem za spremljanje in analizo svetlobnih razmer za zdravje rastlin
+## 🔧 Razvojna veja (develop)
 
-## Pregled projekta
+### 📌 Pregled veje
 
-Projekt obravnava razvoj integriranega sistema za spremljanje, analizo in interpretacijo svetlobnih pogojev, ki vplivajo na rast in fiziološko stanje rastlin.
+Veja `develop` predstavlja primarno razvojno in integracijsko okolje projekta.  
+V tej veji se združujejo in validirajo vse nove funkcionalnosti pred vključitvijo v stabilno produkcijsko vejo (`main`).
 
-Sistem omogoča:
+Gre za centralno integracijsko plast sistema, kjer se preverja skladnost, stabilnost in medsebojno delovanje vseh modulov.
 
-- zajem svetlobnih podatkov s pomočjo strojnih senzorjev,
-- digitalno obdelavo in filtriranje meritev,
-- analizo svetlobnih parametrov,
-- vizualizacijo rezultatov,
-- podporo odločanju glede optimalnih pogojev za rast rastlin.
+### 🎯 Namen
 
-Cilj je vzpostaviti modularno, razširljivo in merljivo platformo za nadzor svetlobnih pogojev v nadzorovanih okoljih (npr. rastlinjaki, laboratoriji, notranji prostori).
+Glavni cilj veje `develop` je:
 
-## Tehnični cilji
+- zagotoviti stabilno integracijo funkcionalnosti iz `feature/*` vej
+- omogočiti sistemsko testiranje celotne aplikacije
+- identificirati in odpraviti napake pred izdajo stabilne verzije
+- pripraviti preverjeno kodo za prehod v produkcijsko vejo (`main`)
 
-- Implementacija zanesljivega zajema svetlobnih podatkov (real-time ali periodično vzorčenje)
-- Kalibracija in validacija senzorjev
-- Predobdelava podatkov (filtriranje šuma, normalizacija)
-- Analiza svetlobnih pogojev glede na definirane pragove
-- Vizualna predstavitev časovnih serij
-- Modularna arhitektura sistema za nadaljnjo razširljivost
+Veja deluje kot kontrolna točka pred produkcijsko izdajo.
 
-## Arhitektura sistema
+### 🏗️ Vsebina veje
 
-Sistem je zasnovan modularno in je razdeljen na naslednje komponente:
+Veja `develop` vključuje:
 
-### 1. Zajem podatkov
-- Branje podatkov iz svetlobnih senzorjev
-- Periodično vzorčenje
-- Osnovna validacija meritev
-- Shranjevanje surovih podatkov
+- integrirane funkcionalnosti iz posameznih modulov (uporabniški vmesnik, analiza podatkov, komunikacijski sloj)
+- izboljšave obstoječih komponent
+- eksperimentalne optimizacije
+- začasne implementacije za validacijo delovanja sistema kot celote
 
-### 2. Obdelava in analiza
-- Filtriranje in glajenje signalov
-- Izračun ključnih parametrov (intenziteta, povprečja, odstopanja)
-- Primerjava z referenčnimi pragovi
-- Identifikacija potencialnih odstopanj
+### 📜 Pravila uporabe
 
-### 3. Vizualizacija
-- Grafični prikaz časovnih serij
-- Prikaz povprečnih vrednosti in trendov
-- Interpretacija rezultatov za uporabnika
+Za ohranjanje pregledne razvojne strukture veljajo naslednja pravila:
 
-### 4. Integracija sistema
-- Povezava med strojno in programsko komponento
-- Enotna podatkovna struktura
-- Možnost nadaljnje nadgradnje (npr. avtomatsko prilagajanje svetlobe)
+- nove funkcionalnosti se razvijajo izključno v `feature/*` vejah
+- veja `develop` služi kot integracijsko okolje
+- združevanje (merge) v `main` je dovoljeno samo iz veje `develop`
+- pred združitvijo v `main` mora biti zagotovljena stabilnost in osnovno testiranje sistema
 
-### 5. Testiranje in validacija
-- Funkcionalno testiranje posameznih modulov
-- Preverjanje stabilnosti sistema
-- Dokumentacija delovanja
+### 🚀 Trenutno stanje
 
-## Upravljanje verzij (Git struktura)
-
-Projekt uporablja strukturiran razvojni model:
-
-- `main` – stabilna, preverjena verzija
-- `develop` – aktivna razvojna veja
-- `feature/*` – implementacija posameznih funkcionalnosti
-- `bugfix/*` – odprava napak
-
-
-## Trenutno stanje
-
-Projekt je v začetni fazi implementacije.
-
-Trenutno je vzpostavljena:
-
-- osnovna arhitektura repozitorija
-- razvojna struktura (branching model)
-- priprava okolja za zajem in obdelavo podatkov
+- aktivna integracija posameznih modulov
+- sistemsko testiranje stabilnosti
+- priprava na prvo stabilno izdajo v veji `main`
