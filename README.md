@@ -1,75 +1,45 @@
-# 🌱 Sistem za spremljanje in analizo svetlobnih razmer za zdravje rastlin
+## 🖥️ Uporabniški vmesnik (feature/user-interface)
 
-## Pregled projekta
+### Plant Monitor
 
-Projekt obravnava razvoj integriranega sistema za spremljanje, analizo in interpretacijo svetlobnih pogojev, ki vplivajo na rast in fiziološko stanje rastlin.
+Plant Monitor je namizna aplikacija za spremljanje svetlobnih pogojev rastlin, razvita v programskem jeziku Python z uporabo ogrodja Tkinter.
+Uporabniški vmesnik je zasnovan kot interaktivna nadzorna plošča (dashboard), ki omogoča pregled nad svetlobnimi meritvami, upravljanje rastlin ter konfiguracijo sistemskih nastavitev.
 
-Sistem omogoča:
+## Funkcionalnosti
 
-- zajem svetlobnih podatkov s pomočjo strojnih senzorjev,
-- digitalno obdelavo in filtriranje meritev,
-- analizo svetlobnih parametrov,
-- vizualizacijo rezultatov,
-- podporo odločanju glede optimalnih pogojev za rast rastlin.
+### 🔐 Avtentikacija uporabnikov
+- Prijava in registracija uporabnikov
+- Podpora več uporabnikom
+- Upravljanje uporabniških računov
 
-Cilj je vzpostaviti modularno, razširljivo in merljivo platformo za nadzor svetlobnih pogojev v nadzorovanih okoljih (npr. rastlinjaki, laboratoriji, notranji prostori).
+### 📊 Nadzorna plošča (Dashboard)
+- Prikaz trenutne svetlobne intenzitete
+- Grafični prikaz meritev prek gumba osveži podatke
+- Izračun in prikaz povprečne, minimalne in maksimalne vrednosti
 
-## Tehnični cilji
+### ⚠️ Opozorila (Alerts)
+- Seznam zaznanih svetlobnih odstopanj
+- Razvrščanje opozoril po kategorijah:
+  - Kritično
+  - Opozorilo
+  - Informativno
+- Filtriranje po tipu dogodka
 
-- Implementacija zanesljivega zajema svetlobnih podatkov (real-time ali periodično vzorčenje)
-- Kalibracija in validacija senzorjev
-- Predobdelava podatkov (filtriranje šuma, normalizacija)
-- Analiza svetlobnih pogojev glede na definirane pragove
-- Vizualna predstavitev časovnih serij
-- Modularna arhitektura sistema za nadaljnjo razširljivost
+### 🌿 Moje rastline (My Plants)
+- Upravljanje zbirke rastlin
+- Dodajanje in odstranjevanje rastlin
+- Simulacija novih svetlobnih meritev
+- Individualni pregled podatkov za posamezno rastlino
 
-## Arhitektura sistema
+### 📅 Zgodovina (History)
+- 7-dnevni pregled svetlobnih meritev
+- Tedenski grafični prikaz trendov
+- Analiza povprečnih vrednosti po dnevih
 
-Sistem je zasnovan modularno in je razdeljen na naslednje komponente:
+### ⚙️ Nastavitve (Settings)
+- Nastavitev pragov svetlobne intenzitete
+- Vklop/izklop obvestil
+- Prilagoditev prikaza uporabniškega vmesnika
 
-### 1. Zajem podatkov
-- Branje podatkov iz svetlobnih senzorjev
-- Periodično vzorčenje
-- Osnovna validacija meritev
-- Shranjevanje surovih podatkov
-
-### 2. Obdelava in analiza
-- Filtriranje in glajenje signalov
-- Izračun ključnih parametrov (intenziteta, povprečja, odstopanja)
-- Primerjava z referenčnimi pragovi
-- Identifikacija potencialnih odstopanj
-
-### 3. Vizualizacija
-- Grafični prikaz časovnih serij
-- Prikaz povprečnih vrednosti in trendov
-- Interpretacija rezultatov za uporabnika
-
-### 4. Integracija sistema
-- Povezava med strojno in programsko komponento
-- Enotna podatkovna struktura
-- Možnost nadaljnje nadgradnje (npr. avtomatsko prilagajanje svetlobe)
-
-### 5. Testiranje in validacija
-- Funkcionalno testiranje posameznih modulov
-- Preverjanje stabilnosti sistema
-- Dokumentacija delovanja
-
-## Upravljanje verzij (Git struktura)
-
-Projekt uporablja strukturiran razvojni model:
-
-- `main` – stabilna, preverjena verzija
-- `develop` – aktivna razvojna veja
-- `feature/*` – implementacija posameznih funkcionalnosti
-- `bugfix/*` – odprava napak
-
-
-## Trenutno stanje
-
-Projekt je v začetni fazi implementacije.
-
-Trenutno je vzpostavljena:
-
-- osnovna arhitektura repozitorija
-- razvojna struktura (branching model)
-- priprava okolja za zajem in obdelavo podatkov
+### 🖥️ Celozaslonski način
+- Preklop v celozaslonski način preko gumba ⛶ ali tipke F11
