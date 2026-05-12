@@ -8,13 +8,7 @@ import matplotlib.patches as mpatches
 import random
 import os
 import csv
-import base64
 import threading
-import urllib.request
-import urllib.error
-import json
-
-os.environ["GOOGLE_API_KEY"] = "AIzaSyBKuN-shGF5gbD2RTsHV_U9OU3uXq6UZv8"
 
 BG_MAIN  = "#0f1117"
 BG_SIDE  = "#141720"
@@ -71,90 +65,269 @@ def hover(widget, bg_normal, bg_hover):
         c.bind("<Enter>", on_enter)
         c.bind("<Leave>", on_leave)
 
-def analyze_plant_image(image_path, callback):
+def _rgb_to_hsv(r, g, b):
+    """Return (h°, s 0-1, v 0-1) for an RGB triple (0-255 each)."""
+    r, g, b = r / 255.0, g / 255.0, b / 255.0
+    mx = max(r, g, b); mn = min(r, g, b); diff = mx - mn
+    v = mx
+    s = 0.0 if mx == 0 else diff / mx
+    if diff == 0:
+        h = 0.0
+    elif mx == r:
+        h = (60 * ((g - b) / diff) + 360) % 360
+    elif mx == g:
+        h = (60 * ((b - r) / diff) + 120) % 360
+    else:
+        h = (60 * ((r - g) / diff) + 240) % 360
+    return h, s, v
+
+
+def analyze_plant_image_local(image_path, callback):
+    """
+    Analyse a plant image locally using pixel colour statistics.
+    Calls callback(result_dict, error_string) — one of which will be None.
+    Runs in a background thread so the UI stays responsive.
+    """
     def _run():
         try:
-            api_key = os.environ.get("GOOGLE_API_KEY", "").strip()
-            if not api_key:
-                callback(None, "No Google API key found.")
-                return
+            from PIL import Image
+        except ImportError:
+            callback(None, "Pillow is not installed.\nRun:  pip install Pillow")
+            return
 
-            with open(image_path, "rb") as f:
-                raw = f.read()
-            b64 = base64.standard_b64encode(raw).decode("utf-8")
-
-            ext = os.path.splitext(image_path)[1].lower()
-            media_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-                         ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp"}
-            media_type = media_map.get(ext, "image/jpeg")
-
-            prompt = (
-                "You are an expert botanist and plant health specialist. "
-                "Carefully examine this plant image and provide a precise diagnosis.\n\n"
-                "Respond ONLY with a valid JSON object — no markdown, no code fences, no extra text. "
-                "Use exactly these keys:\n"
-                "{\n"
-                '  "status": one of exactly: "Healthy", "Needs Water", "Overwatered", '
-                '"Disease Detected", "Pest Infestation", "Nutrient Deficiency", "Root Rot", "Dead", "Unknown",\n'
-                '  "confidence": integer 0-100,\n'
-                '  "summary": one concise sentence describing the plant condition,\n'
-                '  "symptoms": array of up to 4 strings describing visible symptoms,\n'
-                '  "recommendations": array of up to 4 actionable strings,\n'
-                '  "urgency": one of exactly: "Low", "Medium", "High", "Critical"\n'
-                "}"
-            )
-
-            payload = {
-                "contents": [{
-                    "parts": [
-                        {"inline_data": {"mime_type": media_type, "data": b64}},
-                        {"text": prompt}
-                    ]
-                }],
-                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1024}
-            }
-
-            url = (
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                f"gemini-2.0-flash-lite:generateContent?key={api_key}"
-            )
-            data = json.dumps(payload).encode("utf-8")
-            req = urllib.request.Request(url, data=data,
-                                          headers={"Content-Type": "application/json"},
-                                          method="POST")
-
-            try:
-                with urllib.request.urlopen(req, timeout=40) as resp:
-                    body = json.loads(resp.read().decode("utf-8"))
-            except urllib.error.HTTPError as http_err:
-                err_body = http_err.read().decode("utf-8")
-                try:
-                    msg = json.loads(err_body).get("error", {}).get("message", err_body)
-                except Exception:
-                    msg = err_body
-                callback(None, f"HTTP {http_err.code}: {msg}")
-                return
-
-            text = (body.get("candidates", [{}])[0]
-                        .get("content", {})
-                        .get("parts", [{}])[0]
-                        .get("text", ""))
-
-            text = text.strip()
-            for fence in ["```json", "```"]:
-                if text.startswith(fence):
-                    text = text[len(fence):]
-                    break
-            if text.endswith("```"):
-                text = text[:-3]
-
-            result = json.loads(text.strip())
-            callback(result, None)
-
-        except json.JSONDecodeError as je:
-            callback(None, f"Could not parse response as JSON:\n{je}")
+        try:
+            img = Image.open(image_path).convert("RGB")
         except Exception as ex:
-            callback(None, str(ex))
+            callback(None, f"Could not open image:\n{ex}")
+            return
+
+        # Resize to a manageable thumbnail for speed
+        img.thumbnail((200, 200))
+        pixels = list(img.getdata())
+        total  = len(pixels)
+
+        if total == 0:
+            callback(None, "Image appears to be empty.")
+            return
+
+        # Per-pixel HSV classification
+        green_count  = 0   # healthy green foliage
+        yellow_count = 0   # yellowing / nutrient stress
+        brown_count  = 0   # browning / disease / dead
+        dark_count   = 0   # very dark (overwatered / rot)
+        pale_count   = 0   # washed-out / bleached
+        sat_sum      = 0.0
+        val_sum      = 0.0
+
+        for r, g, b in pixels:
+            h, s, v = _rgb_to_hsv(r, g, b)
+            sat_sum += s
+            val_sum += v
+
+            # Dark pixels (near-black / very dark brown)
+            if v < 0.20:
+                dark_count += 1
+                continue
+
+            # Pale / desaturated pixels
+            if s < 0.12 and v > 0.75:
+                pale_count += 1
+                continue
+
+            # Healthy green  (hue 75°–165°, decent saturation & brightness)
+            if 75 <= h <= 165 and s >= 0.18 and v >= 0.20:
+                green_count += 1
+
+            # Yellow / yellowing  (hue 40°–74°)
+            elif 40 <= h < 75 and s >= 0.25 and v >= 0.30:
+                yellow_count += 1
+
+            # Brown / orange-brown  (hue 10°–39° or very low-sat warm)
+            elif (10 <= h < 40 and s >= 0.20) or (h < 10 and s >= 0.30 and v < 0.70):
+                brown_count += 1
+
+        avg_sat = sat_sum / total
+        avg_val = val_sum / total
+
+        # Normalise to fractions
+        green_f  = green_count  / total
+        yellow_f = yellow_count / total
+        brown_f  = brown_count  / total
+        dark_f   = dark_count   / total
+        pale_f   = pale_count   / total
+
+        # Decision tree
+        # Each branch produces: status, confidence, urgency, summary, symptoms, recommendations
+
+        status    = "Unknown"
+        confidence= 50
+        urgency   = "Low"
+        summary   = "Could not determine plant health from this image."
+        symptoms  = []
+        recs      = []
+
+        if green_f >= 0.35 and yellow_f < 0.10 and brown_f < 0.08 and dark_f < 0.15:
+            # HEALTHY
+            status     = "Healthy"
+            confidence = min(98, int(60 + green_f * 80))
+            urgency    = "Low"
+            summary    = "The plant shows strong, vibrant green foliage with no visible signs of stress or disease."
+            symptoms   = [
+                "Predominantly green, healthy-looking leaves",
+                "No significant yellowing or browning detected",
+                "Good colour saturation indicating active chlorophyll",
+            ]
+            recs = [
+                "Continue your current watering and light schedule.",
+                "Rotate the plant every 2 weeks for even light exposure.",
+                "Wipe leaves monthly to maximise light absorption.",
+                "Monitor for any emerging spots or colour changes.",
+            ]
+
+        elif yellow_f >= 0.15 and brown_f < 0.15 and dark_f < 0.20:
+            # NUTRIENT DEFICIENCY / early stress
+            conf_boost = int(yellow_f * 150)
+            status     = "Nutrient Deficiency"
+            confidence = min(92, 55 + conf_boost)
+            urgency    = "Medium"
+            summary    = "Significant yellowing detected, suggesting a nutrient deficiency or early stress response."
+            symptoms   = [
+                f"Yellowing covers ~{int(yellow_f*100)}% of the image area",
+                "Loss of green pigmentation in leaf tissue",
+                "Possible iron, nitrogen, or magnesium deficiency",
+            ]
+            recs = [
+                "Apply a balanced liquid fertiliser (N-P-K) every 2 weeks.",
+                "Check soil pH — nutrient lock-out occurs outside 6.0–7.0.",
+                "Ensure the plant receives adequate indirect light.",
+                "Inspect roots for rot that could inhibit nutrient uptake.",
+            ]
+
+        elif brown_f >= 0.18 and dark_f < 0.25 and green_f < 0.30:
+            # DISEASE DETECTED / leaf blight
+            status     = "Disease Detected"
+            confidence = min(90, int(50 + brown_f * 120))
+            urgency    = "High"
+            summary    = "Extensive browning suggests leaf blight, fungal infection, or severe dehydration."
+            symptoms   = [
+                f"Brown/dead tissue covers ~{int(brown_f*100)}% of visible area",
+                "Possible necrotic lesions or tip burn",
+                "Reduced green healthy tissue",
+            ]
+            recs = [
+                "Isolate the plant immediately to prevent spread.",
+                "Remove all visibly brown or dead leaves with sterilised scissors.",
+                "Apply a copper-based or neem-oil fungicide spray.",
+                "Reduce overhead watering — water at the base only.",
+            ]
+
+        elif dark_f >= 0.30 or (dark_f >= 0.20 and brown_f >= 0.15):
+            # OVERWATERED / root rot
+            status     = "Overwatered"
+            confidence = min(88, int(50 + dark_f * 100 + brown_f * 60))
+            urgency    = "High"
+            summary    = "Very dark, waterlogged-looking tissue detected — consistent with overwatering or root rot."
+            symptoms   = [
+                f"Dark / blackened tissue in ~{int(dark_f*100)}% of the image",
+                "Possible mushy stems or collapsed leaf structure",
+                "Brown edges consistent with root rot damage",
+            ]
+            recs = [
+                "Stop watering immediately and let the soil dry out completely.",
+                "Remove the plant from its pot and inspect the roots — trim any black/mushy roots.",
+                "Repot in fresh, well-draining potting mix.",
+                "Ensure the new pot has adequate drainage holes.",
+            ]
+
+        elif avg_val > 0.80 and avg_sat < 0.18:
+            # NEEDS WATER (pale, washed out)
+            status     = "Needs Water"
+            confidence = min(85, int(45 + pale_f * 150))
+            urgency    = "Medium"
+            summary    = "Pale, low-saturation appearance suggests dehydration or bleaching from excess direct sunlight."
+            symptoms   = [
+                "Washed-out, pale colouring across leaf surface",
+                "Low colour saturation indicating reduced chlorophyll",
+                "Possible wilting or curling not visible in still image",
+            ]
+            recs = [
+                "Water thoroughly until water drains from the bottom.",
+                "If placed in direct sun, move to bright indirect light.",
+                "Check the top 2–3 cm of soil — water when dry.",
+                "Consider raising humidity with a pebble tray or misting.",
+            ]
+
+        elif green_f < 0.10 and yellow_f < 0.10 and brown_f >= 0.30:
+            # --- DEAD ---
+            status     = "Dead"
+            confidence = min(95, int(55 + brown_f * 100))
+            urgency    = "Critical"
+            summary    = "Very little living tissue detected. The plant may be beyond recovery."
+            symptoms   = [
+                "Almost no green tissue visible",
+                f"Brown/dry matter dominates ~{int(brown_f*100)}% of the image",
+                "No signs of active growth or healthy colouring",
+            ]
+            recs = [
+                "Check if any green stems or roots remain — there may still be hope.",
+                "Cut back all dead material to encourage regrowth from the base.",
+                "Ensure correct watering and light if attempting revival.",
+                "Consider propagating any surviving healthy cuttings.",
+            ]
+
+        elif avg_sat < 0.10:
+            # UNKNOWN / unclear image
+            status     = "Unknown"
+            confidence = 30
+            urgency    = "Low"
+            summary    = "Image lacks sufficient colour information for a confident diagnosis. Try a clearer, closer photo."
+            symptoms   = [
+                "Very low colour saturation — possibly a non-plant image",
+                "Insufficient visual data to classify health status",
+            ]
+            recs = [
+                "Upload a well-lit, close-up photo of the plant's leaves.",
+                "Avoid black-and-white or heavily filtered images.",
+                "Ensure the plant fills most of the frame.",
+            ]
+
+        else:
+            # PEST INFESTATION (mixed signals, moderate yellowing + brown spots)
+            status     = "Pest Infestation"
+            confidence = min(78, int(45 + yellow_f * 80 + brown_f * 60))
+            urgency    = "Medium"
+            summary    = "Mixed colour patterns (yellowing with brown spots) are consistent with pest damage."
+            symptoms   = [
+                "Irregular yellow patches mixed with brown spots",
+                "Pattern suggests localised tissue damage from insects",
+                "Possible stippling or bite marks on leaf surface",
+            ]
+            recs = [
+                "Inspect the undersides of leaves for mites, aphids, or scale insects.",
+                "Wipe leaves with a damp cloth and apply neem oil spray weekly.",
+                "Isolate the plant to prevent pest spread to others.",
+                "Introduce beneficial insects (ladybirds) if infestation is severe.",
+            ]
+
+        result = {
+            "status":          status,
+            "confidence":      confidence,
+            "urgency":         urgency,
+            "summary":         summary,
+            "symptoms":        symptoms,
+            "recommendations": recs,
+            # Extra diagnostic info shown in the UI detail panel
+            "_diagnostics": {
+                "green_pct":  round(green_f  * 100, 1),
+                "yellow_pct": round(yellow_f * 100, 1),
+                "brown_pct":  round(brown_f  * 100, 1),
+                "dark_pct":   round(dark_f   * 100, 1),
+                "avg_sat":    round(avg_sat,  3),
+                "avg_bright": round(avg_val,  3),
+                "pixels":     total,
+            }
+        }
+        callback(result, None)
 
     threading.Thread(target=_run, daemon=True).start()
 
@@ -643,6 +816,7 @@ STATUS_META = {
 }
 URGENCY_COLOR = {"Low": ACCENT, "Medium": YELLOW, "High": RED, "Critical": "#ff2244"}
 
+
 class DetectionPage(BasePage):
     def _build(self):
         self._image_path = None
@@ -662,8 +836,14 @@ class DetectionPage(BasePage):
         bind_tree(load_btn, "<Button-1>", lambda e: self._load_image())
         hover(load_btn, BLUE, "#38a8d8")
 
-        tk.Label(outer, text="Upload a photo of your plant — Gemini AI will diagnose its health status.",
-                 font=self.f_small, bg=BG_MAIN, fg=TEXT_SEC).pack(anchor="w", pady=(0, 14))
+        # Subtitle explaining local analysis
+        sub_row = tk.Frame(outer, bg=BG_MAIN)
+        sub_row.pack(fill="x", pady=(0, 14))
+        tk.Label(sub_row,
+                 text="Upload a plant photo — local colour analysis will diagnose its health status instantly.",
+                 font=self.f_small, bg=BG_MAIN, fg=TEXT_SEC).pack(side="left")
+        tk.Label(sub_row, text="  ⚡ No internet required",
+                 font=self.f_small, bg=BG_MAIN, fg=ACCENT).pack(side="left")
 
         cols = tk.Frame(outer, bg=BG_MAIN)
         cols.pack(fill="both", expand=True)
@@ -682,7 +862,16 @@ class DetectionPage(BasePage):
 
         self._img_name_lbl = tk.Label(left, text="", font=self.f_small,
                                        bg=BG_CARD, fg=TEXT_SEC, wraplength=240)
-        self._img_name_lbl.pack(padx=12, pady=(0, 8))
+        self._img_name_lbl.pack(padx=12, pady=(0, 4))
+
+        # Colour breakdown mini-panel (filled after analysis)
+        self._diag_frame = tk.Frame(left, bg=BG_CARD2, padx=10, pady=8)
+        self._diag_frame.pack(fill="x", padx=12, pady=(0, 8))
+        tk.Label(self._diag_frame, text="Colour Analysis", font=self.f_small,
+                 bg=BG_CARD2, fg=TEXT_MUT).pack(anchor="w")
+        self._diag_lbl = tk.Label(self._diag_frame, text="—", font=self.f_small,
+                                   bg=BG_CARD2, fg=TEXT_SEC, justify="left")
+        self._diag_lbl.pack(anchor="w")
 
         self._analyse_btn_frame = tk.Frame(left, bg=ACCENT, cursor="hand2")
         self._analyse_btn_frame.pack(fill="x", padx=12, pady=(0, 12))
@@ -704,6 +893,7 @@ class DetectionPage(BasePage):
         self._image_path = path
         fname = os.path.basename(path)
         self._img_name_lbl.config(text=fname)
+        self._diag_lbl.config(text="—")
         try:
             from PIL import Image, ImageTk
             img = Image.open(path)
@@ -738,7 +928,7 @@ class DetectionPage(BasePage):
         tk.Label(container, text="🔬", font=("Segoe UI", 36), bg=BG_CARD).pack(pady=(20, 12))
         tk.Label(container, text="Analysing plant health…",
                  font=("Segoe UI", 11, "bold"), bg=BG_CARD, fg=TEXT_PRI).pack()
-        tk.Label(container, text="Gemini AI is examining your plant image.\nThis may take a few seconds.",
+        tk.Label(container, text="Scanning colour patterns across all pixels.\nThis only takes a moment.",
                  font=self.f_body, bg=BG_CARD, fg=TEXT_SEC, justify="center").pack(pady=(8, 0))
         self._loading_dots = tk.Label(container, text="● ● ●", font=("Segoe UI", 14),
                                        bg=BG_CARD, fg=ACCENT)
@@ -770,7 +960,7 @@ class DetectionPage(BasePage):
                 except: pass
             self.after(0, lambda: self._show_result(result, error))
 
-        analyze_plant_image(self._image_path, on_result)
+        analyze_plant_image_local(self._image_path, on_result)
 
     def _show_result(self, result, error):
         for w in self._results_frame.winfo_children():
@@ -789,6 +979,19 @@ class DetectionPage(BasePage):
             bind_tree(re_btn, "<Button-1>", lambda e: self._run_analysis())
             hover(re_btn, BG_CARD2, BG_CARD)
             return
+
+        # Update the colour diagnostics mini-panel
+        diag = result.get("_diagnostics", {})
+        if diag:
+            diag_text = (
+                f"🟢 Green    {diag.get('green_pct', 0):.1f}%\n"
+                f"🟡 Yellow   {diag.get('yellow_pct', 0):.1f}%\n"
+                f"🟤 Brown    {diag.get('brown_pct', 0):.1f}%\n"
+                f"⬛ Dark     {diag.get('dark_pct', 0):.1f}%\n"
+                f"💡 Bright   {diag.get('avg_bright', 0):.2f}\n"
+                f"🎨 Sat      {diag.get('avg_sat', 0):.2f}"
+            )
+            self._diag_lbl.config(text=diag_text, fg=TEXT_PRI)
 
         status   = result.get("status", "Unknown")
         conf     = result.get("confidence", 0)
@@ -824,6 +1027,14 @@ class DetectionPage(BasePage):
 
         tk.Label(banner, text=summary, font=self.f_body, bg=BG_CARD,
                  fg=TEXT_PRI, wraplength=360, justify="left").pack(anchor="w", pady=(10, 0))
+
+        # Method badge
+        method_row = tk.Frame(banner, bg=BG_CARD)
+        method_row.pack(anchor="w", pady=(6, 0))
+        tk.Label(method_row, text="  Local Analysis  ", font=("Segoe UI", 7),
+                 bg=BG_CARD2, fg=TEXT_MUT, padx=4, pady=2).pack(side="left")
+        tk.Label(method_row, text=" ⚡ No internet needed", font=("Segoe UI", 7),
+                 bg=BG_CARD, fg=ACCENT).pack(side="left", padx=(6, 0))
 
         if symptoms:
             tk.Label(pad, text="Observed Symptoms", font=self.f_title,
