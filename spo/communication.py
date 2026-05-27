@@ -78,6 +78,18 @@ class STM32:
         ind = meta.find("bytes")
         
         return self.receive_data(int(meta[11 : ind - 1]))
+    
+    def save_file_locally(self, file: str):
+        """
+        Using receive_file to load the desired file, then saves it locally
+        
+        Args:
+            file: Name of the file to request
+        """
+        data = self.receive_file(file)
+
+        with open(f"{file}", 'wb') as local:
+            local.write(data)
 
     @staticmethod
     def unstuff(data : bytes) -> bytes:
@@ -225,7 +237,7 @@ class STM32:
         """
         markers = []
         data = data.rstrip(b'\x1a')
-        
+
         for i in range(len(data)):
             if data[i : i + 2] == b'\xff\xff':
                 markers.append(i)
