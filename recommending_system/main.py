@@ -2,6 +2,15 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import pandas as pd
 import numpy as np
+from io import StringIO
+import threading
+
+# FastAPI imports
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
+from typing import Optional, List
+import uvicorn
+from fastapi.responses import RedirectResponse
 
 # -------------------------------
 # 1. Load plant data
@@ -12,7 +21,6 @@ try:
         lambda x: [p.strip() for p in x.split(",") if p.strip()] if isinstance(x, str) else []
     )
 except FileNotFoundError:
-    # Create the sample data if the file is missing (for standalone execution)
     sample_data = """name,pet_safe,space,water,sunlight,temperature,pollen_allergies,existing_plants
 Monstera,False,flat,7,6,22,False,"Pothos,Philodendron"
 Snake plant,False,flat,3,5,25,False,"ZZ plant,Pothos"
@@ -35,7 +43,6 @@ Dracaena,False,flat,5,6,23,False,""
 Philodendron,False,flat,6,5,22,False,"Monstera,Pothos"
 Calathea,True,flat,7,4,22,False,"Peace lily,Boston fern"
 """
-    from io import StringIO
     df_plants = pd.read_csv(StringIO(sample_data))
     df_plants["existing_plants"] = df_plants["existing_plants"].apply(
         lambda x: [p.strip() for p in x.split(",") if p.strip()] if isinstance(x, str) else []
@@ -119,7 +126,64 @@ def recommend_plants(user_prefs, top_n=5):
     return scores[:top_n]
 
 # -------------------------------
-# 4. GUI Application
+# 4. Pydantic models for FastAPI
+# -------------------------------
+class UserPreferences(BaseModel):
+    water: float = Field(..., ge=1, le=10, description="Desired watering level (1-10)")
+    sunlight: float = Field(..., ge=1, le=10, description="Desired sunlight level (1-10)")
+    temp: float = Field(..., ge=10, le=40, description="Desired temperature in °C")
+    pet_safe: Optional[bool] = Field(None, description="Filter for pet-safe plants (True/False)")
+    space: Optional[str] = Field(None, description="Space type: 'flat' or 'garden'")
+    allergy_concern: Optional[bool] = Field(None, description="Filter out plants with pollen allergies")
+    existing_plants: List[str] = Field(default=[], description="List of existing plant names")
+
+class PlantRecommendation(BaseModel):
+    name: str
+    pet_safe: bool
+    space: str
+    water: int
+    sunlight: int
+    temperature: int
+    pollen_allergies: bool
+    existing_plants: List[str]
+    score: float
+
+# -------------------------------
+# 5. FastAPI application
+# -------------------------------
+app = FastAPI(title="Plant Recommendation System")
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url="/docs")
+
+@app.get("/recommend", include_in_schema=False)
+def recommend_get_help():
+    return {"message": "This endpoint requires a POST request with JSON body. Please use /docs or send a POST request."}
+
+@app.post("/recommend", response_model=List[PlantRecommendation])
+def get_recommendations(prefs: UserPreferences):
+    user_dict = prefs.dict()
+    results = recommend_plants(user_dict, top_n=5)
+
+    output = []
+    for plant_name, score in results:
+        plant_row = df_plants[df_plants["name"] == plant_name].iloc[0]
+        output.append(PlantRecommendation(
+            name=plant_name,
+            pet_safe=bool(plant_row["pet_safe"]),
+            space=plant_row["space"],
+            water=int(plant_row["water"]),
+            sunlight=int(plant_row["sunlight"]),
+            temperature=int(plant_row["temperature"]),
+            pollen_allergies=bool(plant_row["pollen_allergies"]),
+            existing_plants=plant_row["existing_plants"],
+            score=round(score, 4)
+        ))
+    return output
+
+# -------------------------------
+# 6. GUI Application
 # -------------------------------
 class PlantRecommenderApp:
     def __init__(self, root):
@@ -128,7 +192,6 @@ class PlantRecommenderApp:
         root.geometry("550x600")
         root.resizable(False, False)
 
-        # Style
         pad_x = 10
         pad_y = 5
 
@@ -146,7 +209,7 @@ class PlantRecommenderApp:
                                        variable=self.sunlight_var, length=200)
         self.sunlight_scale.grid(row=1, column=1, sticky="we", padx=pad_x, pady=pad_y)
 
-        # ----- Temperature Scale (Celsius) -----
+        # ----- Temperature Scale -----
         tk.Label(root, text="Desired Temperature (°C)").grid(row=2, column=0, sticky="w", padx=pad_x, pady=pad_y)
         self.temp_var = tk.DoubleVar(value=22)
         self.temp_scale = tk.Scale(root, from_=10, to=40, resolution=0.5, orient=tk.HORIZONTAL,
@@ -187,17 +250,14 @@ class PlantRecommenderApp:
         self.results_listbox = tk.Listbox(root, width=50, height=6, font=("Courier", 10))
         self.results_listbox.grid(row=9, column=0, columnspan=2, padx=pad_x, pady=pad_y, sticky="nsew")
 
-        # Scrollbar for listbox
         scrollbar = tk.Scrollbar(root, orient=tk.VERTICAL, command=self.results_listbox.yview)
         scrollbar.grid(row=9, column=2, sticky="ns")
         self.results_listbox.config(yscrollcommand=scrollbar.set)
 
-        # Configure grid expansion
         root.grid_rowconfigure(9, weight=1)
         root.grid_columnconfigure(1, weight=1)
 
     def show_recommendations(self):
-        # Build user_prefs dictionary from GUI inputs
         user_prefs = {
             "water": self.water_var.get(),
             "sunlight": self.sunlight_var.get(),
@@ -206,13 +266,8 @@ class PlantRecommenderApp:
             "space": self.space_var.get() if self.space_var.get() != "any" else None,
             "allergy_concern": True if self.allergy_var.get() else None,
         }
-
-        # Parse existing plants
         raw = self.existing_var.get().strip()
-        if raw:
-            existing = [p.strip() for p in raw.split(",") if p.strip()]
-        else:
-            existing = []
+        existing = [p.strip() for p in raw.split(",") if p.strip()] if raw else []
         user_prefs["existing_plants"] = existing
 
         try:
@@ -226,8 +281,28 @@ class PlantRecommenderApp:
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
+# -------------------------------
+# 7. Launch both API and GUI
+# -------------------------------
+def start_api():
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+
+def start_gui():
+    try:
+        root = tk.Tk()
+        app_gui = PlantRecommenderApp(root)
+        root.mainloop()
+    except Exception as e:
+        print(f"GUI failed to start: {e}")
+        # Keep the process alive so the API still works
+        import time
+        while True:
+            time.sleep(3600)
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = PlantRecommenderApp(root)
-    root.mainloop()
+    # Start FastAPI in a NON‑daemon thread so it keeps the container running
+    api_thread = threading.Thread(target=start_api)
+    api_thread.start()
+
+    # Start GUI in the main thread (or fallback if it fails)
+    start_gui()
