@@ -2,6 +2,7 @@
 Unified Plant Care API
 - Plant health detection (EfficientNetB0 + colour ensemble)
 - Plant recommendation (fuzzy matching on care criteria)
+- Growth/color prediction model
 """
 import io, base64, time, threading
 import numpy as np
@@ -13,6 +14,8 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 import uvicorn
+from growth_color_models import GrowthPredictor, ColorPredictor
+import torch
 
 # 1. Plant data for recommendation
 
@@ -346,6 +349,22 @@ def _infer(pil_img):
         },
     }
 
+# Pydantic models for growth/color models 
+class DataVector(BaseModel):
+    days_passed: float
+    avg_direct_light: float
+    avg_indirect_light: float
+    avg_nighttime: float
+    avg_temp: float
+    min_temp: float
+    max_temp: float
+    times_watered: float
+    initial_height: float
+    color_before: List[int]
+
+# Loading grwoth/color models
+growth_model = GrowthPredictor(9)
+color_model = ColorPredictor(14, 20)
 
 # 5. FastAPI app – combined endpoints
 
@@ -417,7 +436,32 @@ def detect_b64(body: DetectBase64Request):
         return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+# --- Prediction endpoints ---
+@app.post("/growth")
+async def fwd(vector: DataVector):
 
+    flat_vector = list(vector.model_dump().values())
+    flat_vector.pop()
+    inp = torch.tensor(flat_vector, dtype=torch.float32).unsqueeze(0)
+
+    inp_norm = (inp - growth_model.X_mean) / (growth_model.X_std + 1e-8)
+    
+    inp_c = torch.tensor(flat_vector).unsqueeze(0)
+    inp_cb = torch.tensor(vector.color_before).unsqueeze(0)
+    inp_c_norm = (inp_c - color_model.X_mean) / (color_model.X_std)
+    inp_c_final = torch.cat([inp_c_norm, inp_cb], dim=1)
+
+    growth_model.eval()
+    color_model.eval()
+    with torch.no_grad():
+        pred = growth_model(inp_norm).item()
+
+        logits = color_model(inp_c_final)
+        probs = torch.softmax(logits, dim=1)
+        color = torch.argmax(probs, dim=1).item()
+    
+    return {"guess" : pred, "color": color}
 
 # 6. Run the server
 
