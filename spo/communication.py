@@ -186,7 +186,7 @@ class STM32:
         crcComputed = STM32.crc16_compute(unstuffed[:-2])
 
         if crcComputed != crcReceived :
-            print("GLUPSI")
+            #print("GLUPSI")
             return None
         
         chunksData = unstuffed[6 : -2]
@@ -224,12 +224,17 @@ class STM32:
             List of parsed packet dictionaries (None for invalid packets)
         """
         markers = []
+        data = data.rstrip(b'\x1a')
+        
         for i in range(len(data)):
             if data[i : i + 2] == b'\xff\xff':
                 markers.append(i)
 
         parsedData = []
-        for i in range(len(markers) - 1):
-            parsedData.append(STM32.parse_packet(data[markers[i] : markers[i + 1]]))
+        for i in range(len(markers)):
+            if i == len(markers) - 1:
+                parsedData.append(STM32.parse_packet(data[markers[i] :]))
+            else:
+                parsedData.append(STM32.parse_packet(data[markers[i] : markers[i + 1]]))
         
         return parsedData
