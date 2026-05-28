@@ -1,21 +1,40 @@
-FROM python:3.10-slim
+# --- Stage 1: dependencies ---
+FROM python:3.10-slim AS builder
 
-# Install system dependencies for Tkinter and virtual display
-RUN apt-get update && apt-get install -y \
-    tk \
-    xvfb \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libc6-dev \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /main
+WORKDIR /app
 
-# Copy requirements (create a requirements.txt with needed packages)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --user --no-cache-dir -r requirements.txt
 
-# Copy the application and optional plants.csv
-COPY main.py .
-# optional – if not present, fallback sample data is used
-COPY plants.csv .
+# --- Stage 2: runtime ---
+FROM python:3.10-slim
 
-# Use xvfb-run to provide a virtual display for the GUI
-CMD ["xvfb-run", "python", "main.py"]
+# Install only the necessary runtime libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \          
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy installed Python packages from the builder stage
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
+
+# Copy the application code and optional trained model
+COPY api.py .
+# copied only if present
+COPY plant_health_cnn.keras* .   
+
+EXPOSE 5000
+
+CMD ["python", "api.py", "--host", "0.0.0.0", "--port", "5000"]
