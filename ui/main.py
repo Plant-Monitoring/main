@@ -2,6 +2,15 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox, filedialog
 import matplotlib
 matplotlib.use("TkAgg")
+
+# Nastavi pisavo za emoji znake
+import tkinter.font as tkfont
+def _fix_emoji_font(root):
+    try:
+        if "Noto Color Emoji" in tkfont.families(root):
+            root.tk.eval('font configure TkDefaultFont -family {Noto Color Emoji}')
+    except Exception:
+        pass
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -550,6 +559,72 @@ def hover(widget, bg_normal, bg_hover):
     for c in widget.winfo_children():
         c.bind("<Enter>", on_enter)
         c.bind("<Leave>", on_leave)
+
+
+class GreenSlider(tk.Frame):
+    """Drsnik z vedno zelenim gumbom – deluje na vseh platformah."""
+
+    def __init__(self, parent, from_, to, variable, resolution=0.5, length=260, **kw):
+        super().__init__(parent, bg=BG_CARD, height=20)
+        self._from = from_
+        self._to   = to
+        self._var  = variable
+        self._res  = resolution
+        self._len  = length
+        self._drag = False
+
+        self._canvas = tk.Canvas(self, bg=BG_CARD, height=20,
+                                  width=length, highlightthickness=0)
+        self._canvas.pack(fill="x", expand=True)
+
+        self._canvas.bind("<Configure>",        self._redraw)
+        self._canvas.bind("<ButtonPress-1>",    self._on_press)
+        self._canvas.bind("<B1-Motion>",        self._on_drag)
+        self._canvas.bind("<ButtonRelease-1>",  self._on_release)
+        self._var.trace_add("write", lambda *a: self._redraw())
+        self._redraw()
+
+    def _x_for_val(self, val, w):
+        ratio = (val - self._from) / (self._to - self._from)
+        return int(8 + ratio * (w - 16))
+
+    def _val_for_x(self, x, w):
+        ratio = (x - 8) / (w - 16)
+        ratio = max(0.0, min(1.0, ratio))
+        raw   = self._from + ratio * (self._to - self._from)
+        # Snap to resolution
+        snapped = round(raw / self._res) * self._res
+        return max(self._from, min(self._to, snapped))
+
+    def _redraw(self, *_):
+        c = self._canvas
+        w = c.winfo_width() or self._len
+        c.delete("all")
+        # Ozadje tira
+        c.create_rectangle(8, 8, w - 8, 12, fill=BG_CARD2, outline="", tags="trough")
+        # Zapolnjen del tira (levo od gumba)
+        val = self._var.get()
+        tx  = self._x_for_val(val, w)
+        c.create_rectangle(8, 8, tx, 12, fill=ACCENT, outline="", tags="fill")
+        # Zeleni gumb
+        c.create_oval(tx - 8, 2, tx + 8, 18, fill=ACCENT, outline=ACCENT, tags="thumb")
+
+    def _on_press(self, event):
+        self._drag = True
+        self._update(event.x)
+
+    def _on_drag(self, event):
+        if self._drag:
+            self._update(event.x)
+
+    def _on_release(self, event):
+        self._drag = False
+        self._update(event.x)
+
+    def _update(self, x):
+        w   = self._canvas.winfo_width() or self._len
+        val = self._val_for_x(x, w)
+        self._var.set(round(val, 2))
 
 
 class AuthWindow(tk.Tk):
@@ -1479,15 +1554,9 @@ class RecommendationSystemPage(BasePage):
             val_lbl.pack(side="right")
             scale_frame = tk.Frame(row, bg=BG_CARD)
             scale_frame.pack(fill="x", pady=(4, 0))
-            # FIX 2: slider thumb always green via fg and activebackground
-            scale = tk.Scale(
-                scale_frame, from_=from_, to=to, resolution=resolution,
-                orient=tk.HORIZONTAL, variable=val_var, showvalue=False,
-                bg=BG_CARD, fg=ACCENT, troughcolor=BG_CARD2,
-                activebackground=ACCENT,
-                highlightthickness=0, bd=0, sliderrelief="flat", sliderlength=18,
-                length=260
-            )
+            # Drsnik z vedno zelenim gumbom
+            scale = GreenSlider(scale_frame, from_=from_, to=to,
+                                variable=val_var, resolution=resolution, length=260)
             scale.pack(fill="x")
             minmax = tk.Frame(row, bg=BG_CARD)
             minmax.pack(fill="x")
@@ -1701,6 +1770,276 @@ class RecommendationSystemPage(BasePage):
                 pass
 
 
+class GrowthPage(BasePage):
+    """Stran za napovedovanje rasti rastline s klicem na API."""
+
+    # Vhodna polja in njihove oznake
+    FIELDS = [
+        ("days_passed",        "Days passed"),
+        ("avg_direct_light",   "Avg direct light (hrs)"),
+        ("avg_indirect_light", "Avg indirect light (hrs)"),
+        ("avg_nighttime",      "Avg nighttime (hrs)"),
+        ("avg_temp",           "Avg temperature (°C)"),
+        ("min_temp",           "Min temperature (°C)"),
+        ("max_temp",           "Max temperature (°C)"),
+        ("times_watered",      "Times watered"),
+        ("initial_height",     "Initial height (cm)"),
+    ]
+    # Možne barve rastline
+    COLORS = ["green", "yellow", "brown", "pale", "black"]
+
+    def _build(self):
+        self._entries = {}
+        self._color_var = tk.StringVar(value="green")
+
+        outer = tk.Frame(self, bg=BG_MAIN)
+        outer.pack(fill="both", expand=True, padx=22, pady=18)
+
+        # Naslov strani
+        tk.Label(outer, text="📈  Growth Prediction", font=("Segoe UI", 16, "bold"),
+                 bg=BG_MAIN, fg=TEXT_PRI).pack(anchor="w")
+        tk.Label(outer, text="Enter plant conditions and predict height growth using the AI model.",
+                 font=self.f_small, bg=BG_MAIN, fg=TEXT_SEC).pack(anchor="w", pady=(0, 16))
+
+        cols = tk.Frame(outer, bg=BG_MAIN)
+        cols.pack(fill="both", expand=True)
+
+        # Leva plošča – vnosna polja
+        left = tk.Frame(cols, bg=BG_CARD, width=360, padx=18, pady=16)
+        left.pack(side="left", fill="y", padx=(0, 14))
+        left.pack_propagate(False)
+
+        tk.Label(left, text="Plant Conditions", font=self.f_title,
+                 bg=BG_CARD, fg=TEXT_PRI).pack(anchor="w", pady=(0, 12))
+
+        # Vnosna polja za numerične vrednosti
+        for key, label in self.FIELDS:
+            row = tk.Frame(left, bg=BG_CARD)
+            row.pack(fill="x", pady=(0, 8))
+            tk.Label(row, text=label, font=self.f_small, bg=BG_CARD,
+                     fg=TEXT_SEC, width=22, anchor="w").pack(side="left")
+            entry = tk.Entry(row, bg=BG_CARD2, fg=TEXT_PRI,
+                             insertbackground=TEXT_PRI, relief="flat",
+                             font=("Segoe UI", 9), width=10)
+            entry.pack(side="left", ipady=5, padx=(6, 0))
+            tk.Frame(row, bg=BORDER, height=1).pack(side="bottom", fill="x")
+            self._entries[key] = entry
+
+        tk.Frame(left, bg=BORDER, height=1).pack(fill="x", pady=(4, 10))
+
+        # Izbira barve rastline
+        tk.Label(left, text="Plant colour (before)", font=self.f_small,
+                 bg=BG_CARD, fg=TEXT_SEC).pack(anchor="w", pady=(0, 6))
+        color_row = tk.Frame(left, bg=BG_CARD)
+        color_row.pack(fill="x", pady=(0, 12))
+        self._color_btns = {}
+
+        color_display = {"green": ACCENT, "yellow": YELLOW, "brown": "#a0522d",
+                         "pale": TEXT_SEC, "black": "#555555"}
+
+        for c in self.COLORS:
+            is_active = (c == "green")
+            btn = tk.Frame(color_row,
+                           bg=ACCENT if is_active else BG_CARD2,
+                           cursor="hand2", padx=10, pady=4)
+            btn.pack(side="left", padx=(0, 4))
+            lbl = tk.Label(btn, text=c.capitalize(), font=self.f_small,
+                           bg=ACCENT if is_active else BG_CARD2,
+                           fg=BG_MAIN if is_active else TEXT_SEC)
+            lbl.pack()
+            self._color_btns[c] = (btn, lbl)
+
+            def on_color(e, v=c):
+                self._color_var.set(v)
+                for k, (b, l) in self._color_btns.items():
+                    active = (k == v)
+                    b.configure(bg=ACCENT if active else BG_CARD2)
+                    l.configure(bg=ACCENT if active else BG_CARD2,
+                                fg=BG_MAIN if active else TEXT_SEC)
+
+            bind_tree(btn, "<Button-1>", on_color)
+
+        # API URL polje
+        api_row = tk.Frame(left, bg=BG_CARD)
+        api_row.pack(fill="x", pady=(0, 10))
+        tk.Label(api_row, text="API URL", font=self.f_small, bg=BG_CARD,
+                 fg=TEXT_SEC).pack(anchor="w", pady=(0, 4))
+        self._api_url_var = tk.StringVar(value="http://localhost:5000/growth")
+        api_entry = tk.Entry(api_row, textvariable=self._api_url_var,
+                             bg=BG_CARD2, fg=TEXT_PRI, insertbackground=TEXT_PRI,
+                             relief="flat", font=("Segoe UI", 9))
+        api_entry.pack(fill="x", ipady=5)
+        tk.Frame(api_row, bg=BORDER, height=1).pack(fill="x")
+
+        # Gumb za pošiljanje napovedi
+        predict_btn = tk.Frame(left, bg=ACCENT, cursor="hand2")
+        predict_btn.pack(fill="x", pady=(14, 0))
+        tk.Label(predict_btn, text="📈  Predict Growth", font=self.f_label,
+                 bg=ACCENT, fg=BG_MAIN, pady=9).pack()
+        bind_tree(predict_btn, "<Button-1>", lambda e: self._run_prediction())
+        hover(predict_btn, ACCENT, "#00c98a")
+
+        # Desna plošča – rezultati
+        right = tk.Frame(cols, bg=BG_MAIN)
+        right.pack(side="left", fill="both", expand=True)
+
+        tk.Label(right, text="Prediction Result", font=self.f_title,
+                 bg=BG_MAIN, fg=TEXT_PRI).pack(anchor="w", pady=(0, 10))
+
+        self._result_frame = tk.Frame(right, bg=BG_MAIN)
+        self._result_frame.pack(fill="both", expand=True)
+        self._show_empty()
+
+    def _show_empty(self):
+        """Prikaže prazno stanje brez rezultatov."""
+        for w in self._result_frame.winfo_children():
+            w.destroy()
+        container = tk.Frame(self._result_frame, bg=BG_CARD, padx=20, pady=40)
+        container.pack(fill="both", expand=True)
+        tk.Label(container, text="📈", font=("Segoe UI", 40), bg=BG_CARD).pack(pady=(20, 8))
+        tk.Label(container, text="Fill in the plant conditions and click Predict Growth.",
+                 font=self.f_body, bg=BG_CARD, fg=TEXT_SEC, justify="center").pack()
+
+    def _show_loading(self):
+        """Prikaže animacijo med čakanjem na odgovor API."""
+        for w in self._result_frame.winfo_children():
+            w.destroy()
+        container = tk.Frame(self._result_frame, bg=BG_CARD, padx=20, pady=40)
+        container.pack(fill="both", expand=True)
+        tk.Label(container, text="Contacting growth model...",
+                 font=("Segoe UI", 11, "bold"), bg=BG_CARD, fg=TEXT_PRI).pack(pady=(30, 8))
+        self._loading_lbl = tk.Label(container, text="⬤  ⬤  ⬤",
+                                      font=("Segoe UI", 14), bg=BG_CARD, fg=ACCENT)
+        self._loading_lbl.pack(pady=(12, 0))
+        self._dot_idx = 0
+        self._animate()
+
+    def _animate(self):
+        patterns = ["⬤  ○  ○", "○  ⬤  ○", "○  ○  ⬤", "○  ⬤  ○"]
+        try:
+            self._loading_lbl.config(text=patterns[self._dot_idx % len(patterns)])
+            self._dot_idx += 1
+            self._anim_job = self.after(400, self._animate)
+        except Exception:
+            pass
+
+    def _run_prediction(self):
+        """Zbere vrednosti, zgradi zahtevo in jo pošlje na API v ozadni niti."""
+        # Preveri, da so vsa polja izpolnjena
+        data = {}
+        for key, label in self.FIELDS:
+            val = self._entries[key].get().strip()
+            if not val:
+                messagebox.showwarning("Missing Input", f"Please fill in: {label}")
+                return
+            try:
+                data[key] = float(val)
+            except ValueError:
+                messagebox.showerror("Invalid Input", f"'{label}' must be a number.")
+                return
+
+        # Kodiranje barve v one-hot vektor
+        color = self._color_var.get()
+        vector = [1 if c == color else 0 for c in self.COLORS]
+
+        payload = {**data, "color_before": vector}
+        api_url = self._api_url_var.get().strip()
+
+        self._show_loading()
+
+        def _call():
+            try:
+                import requests as req_lib
+                response = req_lib.post(api_url, json=payload, timeout=10)
+                if response.status_code == 200:
+                    rep = response.json()
+                    self.after(0, lambda: self._show_result(rep))
+                else:
+                    msg = f"Server returned status {response.status_code}.\n{response.text[:200]}"
+                    self.after(0, lambda m=msg: self._show_error(m))
+            except Exception as ex:
+                self.after(0, lambda e=ex: self._show_error(str(e)))
+
+        threading.Thread(target=_call, daemon=True).start()
+
+    def _show_result(self, rep):
+        """Prikaže rezultat napovedi iz API odgovora."""
+        if hasattr(self, "_anim_job"):
+            try: self.after_cancel(self._anim_job)
+            except: pass
+        for w in self._result_frame.winfo_children():
+            w.destroy()
+
+        color_name = self.COLORS[rep.get("color", 0)] if "color" in rep else "unknown"
+        guess      = rep.get("guess", "N/A")
+
+        # Kartica z rezultatom
+        card = tk.Frame(self._result_frame, bg=BG_CARD, padx=20, pady=20)
+        card.pack(fill="x", pady=(0, 10))
+
+        tk.Label(card, text="Prediction Complete", font=("Segoe UI", 12, "bold"),
+                 bg=BG_CARD, fg=ACCENT).pack(anchor="w", pady=(0, 12))
+
+        # Napovedana višina
+        height_row = tk.Frame(card, bg=BG_CARD2, padx=16, pady=14)
+        height_row.pack(fill="x", pady=(0, 8))
+        tk.Label(height_row, text="Predicted height growth",
+                 font=self.f_small, bg=BG_CARD2, fg=TEXT_SEC).pack(anchor="w")
+        tk.Label(height_row, text=f"{guess:.3f} cm",
+                 font=("Segoe UI", 28, "bold"), bg=BG_CARD2, fg=ACCENT).pack(anchor="w")
+
+        # Napovedana barva
+        color_row = tk.Frame(card, bg=BG_CARD2, padx=16, pady=14)
+        color_row.pack(fill="x", pady=(0, 8))
+        tk.Label(color_row, text="Predicted plant colour",
+                 font=self.f_small, bg=BG_CARD2, fg=TEXT_SEC).pack(anchor="w")
+        color_colors = {"green": ACCENT, "yellow": YELLOW, "brown": "#a0522d",
+                        "pale": TEXT_SEC, "black": "#888888"}
+        tk.Label(color_row, text=color_name.capitalize(),
+                 font=("Segoe UI", 16, "bold"), bg=BG_CARD2,
+                 fg=color_colors.get(color_name, TEXT_PRI)).pack(anchor="w")
+
+        # Surovi odgovor API
+        raw_card = tk.Frame(self._result_frame, bg=BG_CARD, padx=16, pady=12)
+        raw_card.pack(fill="x")
+        tk.Label(raw_card, text="Raw API response", font=self.f_small,
+                 bg=BG_CARD, fg=TEXT_MUT).pack(anchor="w", pady=(0, 6))
+        import json
+        raw_txt = tk.Text(raw_card, bg=BG_CARD2, fg=TEXT_SEC, font=("Courier", 8),
+                          relief="flat", height=6, state="normal")
+        raw_txt.insert("end", json.dumps(rep, indent=2))
+        raw_txt.config(state="disabled")
+        raw_txt.pack(fill="x")
+
+        # Gumb za ponovni poskus
+        retry_btn = tk.Frame(self._result_frame, bg=BG_CARD2, cursor="hand2",
+                              padx=14, pady=8)
+        retry_btn.pack(anchor="e", pady=(10, 0))
+        tk.Label(retry_btn, text="Predict Again", font=self.f_label,
+                 bg=BG_CARD2, fg=ACCENT).pack()
+        bind_tree(retry_btn, "<Button-1>", lambda e: self._run_prediction())
+        hover(retry_btn, BG_CARD2, BG_CARD)
+
+    def _show_error(self, msg: str):
+        """Prikaže sporočilo o napaki pri klicu API."""
+        if hasattr(self, "_anim_job"):
+            try: self.after_cancel(self._anim_job)
+            except: pass
+        for w in self._result_frame.winfo_children():
+            w.destroy()
+        card = tk.Frame(self._result_frame, bg=BG_CARD, padx=20, pady=20)
+        card.pack(fill="both", expand=True)
+        tk.Label(card, text="Prediction Failed", font=("Segoe UI", 12, "bold"),
+                 bg=BG_CARD, fg=RED).pack(pady=(10, 8))
+        tk.Label(card, text=msg, font=self.f_body, bg=BG_CARD, fg=TEXT_SEC,
+                 wraplength=400, justify="center").pack(pady=(0, 12))
+        retry_btn = tk.Frame(card, bg=BG_CARD2, cursor="hand2", padx=14, pady=8)
+        retry_btn.pack()
+        tk.Label(retry_btn, text="Try Again", font=self.f_label, bg=BG_CARD2, fg=ACCENT).pack()
+        bind_tree(retry_btn, "<Button-1>", lambda e: self._run_prediction())
+        hover(retry_btn, BG_CARD2, BG_CARD)
+
+
 class SettingsPage(BasePage):
     def _build(self):
         pad = tk.Frame(self, bg=BG_MAIN)
@@ -1754,6 +2093,7 @@ NAV_ORDER = [
     ("📅", "History"),
     ("🔬", "Detection"),
     ("💡", "Recommendation"),
+    ("📈", "Growth"),
     ("⚙️", "Settings"),
 ]
 
@@ -1763,6 +2103,7 @@ PAGE_CLASSES = {
     "History":        HistoryPage,
     "Detection":      DetectionPage,
     "Recommendation": RecommendationSystemPage,
+    "Growth":         GrowthPage,
     "Settings":       SettingsPage,
 }
 
