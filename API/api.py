@@ -1,9 +1,3 @@
-"""
-Unified Plant Care API
-- Plant health detection (EfficientNetB0 + colour ensemble)
-- Plant recommendation (fuzzy matching on care criteria)
-- Growth/color prediction model
-"""
 import io, base64, time, threading
 import numpy as np
 from pathlib import Path
@@ -12,13 +6,11 @@ import pandas as pd
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
-from growth_color_models import GrowthPredictor, ColorPredictor
-import torch
 
-# 1. Plant data for recommendation
-
+# Plant data
 PLANTS_CSV_DATA = """name,pet_safe,space,water,sunlight,temperature,pollen_allergies,existing_plants
 Monstera,False,flat,7,6,22,False,"Pothos,Philodendron"
 Snake plant,False,flat,3,5,25,False,"ZZ plant,Pothos"
@@ -30,8 +22,8 @@ Pothos,False,flat,5,4,23,False,"Monstera,Philodendron"
 ZZ plant,False,flat,2,3,25,False,"Snake plant"
 Boston fern,True,flat,8,4,20,False,"Peace lily,Calathea"
 English ivy,False,garden,5,6,18,False,""
-Lavender,True,garden,3,10,22,False,"Rosemary"
-Rosemary,True,garden,4,10,22,False,"Lavender"
+Lavender,True,garden,3,10,22,False,"Rosemary,Thyme"
+Rosemary,True,garden,4,10,22,False,"Lavender,Thyme"
 Basil,True,garden,6,8,25,False,""
 Orchid,True,flat,5,6,24,False,""
 Cactus,True,flat,1,10,30,False,"Aloe vera,Succulent"
@@ -83,7 +75,6 @@ Bamboo palm,True,flat,7,5,23,False,"Parlour palm,Dracaena"
 """
 
 def load_plant_data():
-    """Try to read plants.csv, fallback to the embedded CSV data."""
     try:
         df = pd.read_csv("plants.csv")
     except FileNotFoundError:
@@ -96,101 +87,88 @@ def load_plant_data():
 
 df_plants = load_plant_data()
 
-# 2. Fuzzy matching & recommendation engine
-def triangular_membership(x, center, spread):
+# Fuzzy matching & recommendation engine
+def triangular_membership(x: float, center: float, spread: float) -> float:
     if spread <= 0:
         return 1.0 if x == center else 0.0
     return max(0.0, 1.0 - abs(x - center) / spread)
 
-def fuzzy_match(user_val, plant_val, spread):
+def fuzzy_match(user_val: float, plant_val: float, spread: float) -> float:
     return triangular_membership(plant_val, user_val, spread)
 
 def recommend_plants(user_prefs: dict, top_n: int = 5):
-    WATER_SPREAD = 2.0
-    SUNLIGHT_SPREAD = 2.0
-    TEMP_SPREAD = 4.0
-
     scores = []
     for _, plant in df_plants.iterrows():
-        w_match = fuzzy_match(user_prefs["water"], plant["water"], WATER_SPREAD)
-        s_match = fuzzy_match(user_prefs["sunlight"], plant["sunlight"], SUNLIGHT_SPREAD)
-        t_match = fuzzy_match(user_prefs["temp"], plant["temperature"], TEMP_SPREAD)
-
-        p_match = (1.0 if plant["pet_safe"] == user_prefs["pet_safe"] else 0.0) if user_prefs.get("pet_safe") is not None else None
-        space_match = (1.0 if plant["space"] == user_prefs["space"] else 0.0) if user_prefs.get("space") is not None else None
-
+        w_match = fuzzy_match(user_prefs["water"],    plant["water"],       2.0)
+        s_match = fuzzy_match(user_prefs["sunlight"], plant["sunlight"],    2.0)
+        t_match = fuzzy_match(user_prefs["temp"],     plant["temperature"], 4.0)
+        p_match     = (1.0 if plant["pet_safe"] == user_prefs["pet_safe"] else 0.0) \
+                      if user_prefs.get("pet_safe") is not None else None
+        space_match = (1.0 if plant["space"] == user_prefs["space"] else 0.0) \
+                      if user_prefs.get("space") is not None else None
         if user_prefs.get("allergy_concern") is not None:
-            a_match = (1.0 if not plant["pollen_allergies"] else 0.0) if user_prefs["allergy_concern"] else 1.0
+            a_match = (1.0 if not plant["pollen_allergies"] else 0.0) \
+                      if user_prefs["allergy_concern"] else 1.0
         else:
             a_match = None
-
         user_existing = user_prefs.get("existing_plants", [])
         if user_existing:
-            compat_list = plant["existing_plants"]
-            exist_match = (sum(1 for up in user_existing if up in compat_list) / len(user_existing)) if compat_list else 0.0
+            compat = plant["existing_plants"]
+            exist_match = (sum(1 for p in user_existing if p in compat) / len(user_existing)) \
+                          if compat else 0.0
         else:
             exist_match = None
-
-        weights = {
-            "water": 0.15, "sunlight": 0.15, "temp": 0.15,
-            "pet": 0.15, "space": 0.15, "allergy": 0.15, "existing": 0.10
-        }
-        components = {
-            "water": w_match, "sunlight": s_match, "temp": t_match,
-            "pet": p_match, "space": space_match, "allergy": a_match, "existing": exist_match
-        }
+        weights    = {"water": 0.15, "sunlight": 0.15, "temp": 0.15,
+                      "pet": 0.15, "space": 0.15, "allergy": 0.15, "existing": 0.10}
+        components = {"water": w_match, "sunlight": s_match, "temp": t_match,
+                      "pet": p_match, "space": space_match, "allergy": a_match,
+                      "existing": exist_match}
         active = {k: v for k, v in components.items() if v is not None}
         if not active:
             continue
-        active_weight_sum = sum(weights[k] for k in active)
-        score = sum(v * weights[k] / active_weight_sum for k, v in active.items())
+        active_w = sum(weights[k] for k in active)
+        score    = sum(v * weights[k] / active_w for k, v in active.items())
         scores.append((plant["name"], score))
-
     scores.sort(key=lambda x: x[1], reverse=True)
     return scores[:top_n]
 
-
-# 3. Pydantic models for recommendation
-
+# Pydantic models – recommendation
 class UserPreferences(BaseModel):
-    water: float = Field(..., ge=1, le=10, description="Desired watering level (1-10)")
-    sunlight: float = Field(..., ge=1, le=10, description="Desired sunlight level (1-10)")
-    temp: float = Field(..., ge=10, le=40, description="Desired temperature in °C")
-    pet_safe: Optional[bool] = Field(None, description="Filter for pet-safe plants")
-    space: Optional[str] = Field(None, description="Space type: 'flat' or 'garden'")
-    allergy_concern: Optional[bool] = Field(None, description="Filter out plants with pollen allergies")
-    existing_plants: List[str] = Field(default=[], description="List of existing plant names")
+    water:           float          = Field(..., ge=1, le=10)
+    sunlight:        float          = Field(..., ge=1, le=10)
+    temp:            float          = Field(..., ge=10, le=40)
+    pet_safe:        Optional[bool] = None
+    space:           Optional[str]  = None
+    allergy_concern: Optional[bool] = None
+    existing_plants: List[str]      = Field(default=[])
+
 
 class PlantRecommendation(BaseModel):
-    name: str
-    pet_safe: bool
-    space: str
-    water: int
-    sunlight: int
-    temperature: int
+    name:             str
+    pet_safe:         bool
+    space:            str
+    water:            int
+    sunlight:         int
+    temperature:      int
     pollen_allergies: bool
-    existing_plants: List[str]
-    score: float
+    existing_plants:  List[str]
+    score:            float
 
-# 4. Detection logic
-
-# Classes and metadata for the CNN
+# Plant health detection
 CNN_CLASSES = [
     "Healthy", "Nutrient Deficiency", "Disease Detected", "Overwatered",
-    "Needs Water", "Pest Infestation", "Root Rot", "Dead"
+    "Needs Water", "Pest Infestation", "Root Rot", "Dead",
 ]
-
 CNN_META = {
-    "Healthy":             ("Low",      "#00e5a0", "✅", "Strong green foliage, no stress signs."),
-    "Needs Water":         ("Medium",   "#4fc3f7", "💧", "Pale appearance indicates dehydration."),
-    "Overwatered":         ("High",     "#b48eff", "🌊", "Dark, waterlogged tissue detected."),
-    "Disease Detected":    ("High",     "#ff5c6a", "🦠", "Browning indicates leaf blight or fungal infection."),
-    "Pest Infestation":    ("Medium",   "#ffd166", "🐛", "Yellow spots with brown specks — pest damage."),
-    "Nutrient Deficiency": ("Medium",   "#ffd166", "🟡", "Yellowing indicates nutrient deficiency."),
-    "Root Rot":            ("High",     "#ff5c6a", "🪱", "Dark tissue at base — root rot."),
-    "Dead":                ("Critical", "#888888", "💀", "Very little living tissue detected."),
+    "Healthy":             ("Low",      "#00e5a0", "OK",  "Strong green foliage, no stress signs."),
+    "Needs Water":         ("Medium",   "#4fc3f7", "H2O", "Pale appearance indicates dehydration."),
+    "Overwatered":         ("High",     "#b48eff", "WET", "Dark, waterlogged tissue detected."),
+    "Disease Detected":    ("High",     "#ff5c6a", "BIO", "Browning indicates leaf blight or fungal infection."),
+    "Pest Infestation":    ("Medium",   "#ffd166", "BUG", "Yellow spots with brown specks — pest damage."),
+    "Nutrient Deficiency": ("Medium",   "#ffd166", "NUT", "Yellowing indicates nutrient deficiency."),
+    "Root Rot":            ("High",     "#ff5c6a", "ROT", "Dark tissue at base — root rot."),
+    "Dead":                ("Critical", "#888888", "RIP", "Very little living tissue detected."),
 }
-
 CNN_SYMPTOMS = {
     "Healthy":             ["Green healthy foliage", "No yellowing or browning", "Good colour saturation"],
     "Needs Water":         ["Pale, washed-out leaf surface", "Low colour saturation", "Possible wilting"],
@@ -201,7 +179,6 @@ CNN_SYMPTOMS = {
     "Root Rot":            ["Dark discolouration at stem base", "Wilting despite moist soil", "Possible odour"],
     "Dead":                ["Almost no green tissue", "Predominantly brown/dry mass", "No active growth signs"],
 }
-
 CNN_RECS = {
     "Healthy":             ["Continue current care.", "Rotate every 2 weeks.", "Wipe leaves monthly."],
     "Needs Water":         ["Water thoroughly until drainage.", "Move to bright indirect light.", "Check soil moisture daily."],
@@ -213,32 +190,26 @@ CNN_RECS = {
     "Dead":                ["Check for any surviving green stems.", "Cut away dead material.", "Propagate any healthy cuttings."],
 }
 
-# Model path (adjust as needed)
-CNN_MODEL = Path("plant_health_cnn.keras")
-
-# Caching the model
-_model_cache = None
-_model_lock = threading.Lock()
+CNN_MODEL_PATH = Path("plant_health_cnn.keras")
+_model_cache   = None
+_model_lock    = threading.Lock()
 
 def _get_model():
     global _model_cache
-    if _model_cache:
+    if _model_cache is not None:
         return _model_cache
     with _model_lock:
-        if _model_cache:
+        if _model_cache is not None:
             return _model_cache
         import tensorflow as tf
         from tensorflow.keras import layers, Model
         from tensorflow.keras.applications import EfficientNetB0
-
-        if CNN_MODEL.exists():
+        if CNN_MODEL_PATH.exists():
             try:
-                _model_cache = (tf.keras.models.load_model(str(CNN_MODEL)), True)
+                _model_cache = (tf.keras.models.load_model(str(CNN_MODEL_PATH)), True)
                 return _model_cache
             except Exception:
                 pass
-
-        # Build ensemble model
         base = EfficientNetB0(input_shape=(224, 224, 3), include_top=False, weights="imagenet")
         base.trainable = False
         inputs = tf.keras.Input(shape=(224, 224, 3))
@@ -253,167 +224,227 @@ def _get_model():
         return _model_cache
 
 def _colour_diagnosis(pil_img):
-    """Colour‑based heuristic diagnosis."""
-    img = pil_img.convert("RGB")
-    img.thumbnail((128, 128))
-    pixels = list(img.getdata())
-    total = max(len(pixels), 1)
-
-    gn = yn = bn = dn = 0
-    ss = vs = 0.0
+    img = pil_img.convert("RGB"); img.thumbnail((128, 128))
+    pixels = list(img.getdata()); total = max(len(pixels), 1)
+    gn = yn = bn = dn = 0; ss = vs = 0.0
     for r, g, b in pixels:
         rf, gf, bf = r/255, g/255, b/255
-        mx, mn = max(rf, gf, bf), min(rf, gf, bf)
-        d = mx - mn
-        v = mx
-        s = 0 if mx == 0 else d / mx
-        h = 0.0
+        mx, mn = max(rf,gf,bf), min(rf,gf,bf); d = mx-mn; v = mx
+        s = 0.0 if mx == 0 else d/mx; h = 0.0
         if d:
-            if mx == rf:   h = (60 * ((gf - bf) / d) + 360) % 360
-            elif mx == gf: h = (60 * ((bf - rf) / d) + 120) % 360
-            else:          h = (60 * ((rf - gf) / d) + 240) % 360
-        ss += s; vs += v
-        if v < 0.18:                                              dn += 1
-        elif 72 <= h <= 168 and s >= 0.16 and v >= 0.18:         gn += 1
-        elif 38 <= h < 72  and s >= 0.22 and v >= 0.28:          yn += 1
-        elif (10 <= h < 38 and s >= 0.18) or (h < 10 and s >= 0.28 and v < 0.72): bn += 1
-
-    gf2, yf, bf2, df = gn/total, yn/total, bn/total, dn/total
-    as_, av = ss/total, vs/total
-
-    if gf2 >= 0.32 and yf < 0.09 and bf2 < 0.07: return "Healthy",             min(0.97, 0.60 + gf2 * 0.80)
-    if yf  >= 0.14 and bf2 < 0.14:                return "Nutrient Deficiency", min(0.94, 0.55 + yf  * 1.50)
-    if bf2 >= 0.18 and gf2 < 0.28:                return "Disease Detected",    min(0.92, 0.50 + bf2 * 1.20)
-    if df  >= 0.28 or (df >= 0.18 and bf2 >= 0.13): return "Overwatered",       min(0.90, 0.50 + df  * 0.90)
-    if av  >  0.80 and as_ < 0.16:                return "Needs Water",          0.80
-    if gf2 <  0.08 and bf2 >= 0.28:               return "Dead",                min(0.95, 0.55 + bf2)
-    return "Pest Infestation", min(0.78, 0.45 + yf * 0.80 + bf2 * 0.60)
+            if mx==rf:   h=(60*((gf-bf)/d)+360)%360
+            elif mx==gf: h=(60*((bf-rf)/d)+120)%360
+            else:        h=(60*((rf-gf)/d)+240)%360
+        ss+=s; vs+=v
+        if v<0.18: dn+=1
+        elif 72<=h<=168 and s>=0.16 and v>=0.18: gn+=1
+        elif 38<=h<72   and s>=0.22 and v>=0.28: yn+=1
+        elif (10<=h<38 and s>=0.18) or (h<10 and s>=0.28 and v<0.72): bn+=1
+    gf2,yf,bf2,df = gn/total,yn/total,bn/total,dn/total
+    as_,av = ss/total,vs/total
+    if gf2>=0.32 and yf<0.09 and bf2<0.07: return "Healthy",             min(0.97,0.60+gf2*0.80)
+    if yf >=0.14 and bf2<0.14:             return "Nutrient Deficiency", min(0.94,0.55+yf *1.50)
+    if bf2>=0.18 and gf2<0.28:             return "Disease Detected",    min(0.92,0.50+bf2*1.20)
+    if df >=0.28 or (df>=0.18 and bf2>=0.13): return "Overwatered",      min(0.90,0.50+df *0.90)
+    if av >0.80  and as_<0.16:             return "Needs Water",         0.80
+    if gf2<0.08  and bf2>=0.28:            return "Dead",                min(0.95,0.55+bf2)
+    return "Pest Infestation", min(0.78,0.45+yf*0.80+bf2*0.60)
 
 def _infer(pil_img):
     model, finetuned = _get_model()
     import tensorflow as tf
     from tensorflow.keras.preprocessing.image import img_to_array
     from tensorflow.keras.applications.efficientnet import decode_predictions, preprocess_input
-
-    arr = np.expand_dims(img_to_array(pil_img.convert("RGB").resize((224, 224))), 0)
-
+    img_resized = pil_img.convert("RGB").resize((224,224))
+    arr = np.expand_dims(img_to_array(img_resized), 0)
     if finetuned:
-        p = model.predict(arr, verbose=0)
-        idx = int(np.argmax(p[0]))
-        cls = CNN_CLASSES[idx]
-        conf = max(50, min(93, int(p[0][idx] * 100)))
-        acc = "~91-93%"
+        p = model.predict(arr, verbose=0); idx = int(np.argmax(p[0]))
+        cls = CNN_CLASSES[idx]; conf = max(50, min(93, int(p[0][idx]*100))); acc = "~91-93%"
     else:
         c_cls, c_sc = _colour_diagnosis(pil_img)
         try:
             raw = tf.keras.applications.EfficientNetB0(weights="imagenet")
-            top = [n for _, n, _ in decode_predictions(
-                raw.predict(preprocess_input(arr.copy()), verbose=0), top=5)[0]]
+            top = [n for _,n,_ in decode_predictions(raw.predict(preprocess_input(arr.copy()),verbose=0),top=5)[0]]
             rules = [
-                (["leaf","plant","herb","fern","flower","succulent","cactus"], "Healthy", 0.82),
-                (["desert","sand","dry","arid","withered"], "Needs Water", 0.74),
-                (["mud","soil","fungi","mushroom","mold"], "Overwatered", 0.70),
-                (["rust","blight","lesion","bark","dead","wood"], "Disease Detected", 0.72),
-                (["insect","bug","beetle","spider","worm","mite","aphid"], "Pest Infestation", 0.76),
-                (["yellow","pale","lime"], "Nutrient Deficiency", 0.70),
-                (["root","rot","decay"], "Root Rot", 0.74),
+                (["leaf","plant","herb","fern","flower","succulent","cactus"], "Healthy",             0.82),
+                (["desert","sand","dry","arid","withered"],                    "Needs Water",         0.74),
+                (["mud","soil","fungi","mushroom","mold"],                     "Overwatered",         0.70),
+                (["rust","blight","lesion","bark","dead","wood"],              "Disease Detected",    0.72),
+                (["insect","bug","beetle","spider","worm","mite","aphid"],     "Pest Infestation",    0.76),
+                (["yellow","pale","lime"],                                      "Nutrient Deficiency", 0.70),
+                (["root","rot","decay"],                                        "Root Rot",            0.74),
             ]
             j = " ".join(top).lower()
-            n_cls, n_sc = next(((c, s) for kws, c, s in rules if any(k in j for k in kws)), ("Healthy", 0.55))
+            n_cls,n_sc = next(((c,s) for kws,c,s in rules if any(k in j for k in kws)),("Healthy",0.55))
         except Exception:
-            n_cls, n_sc = c_cls, c_sc * 0.8
-
-        W_C, W_N = 0.55, 0.45
-        v = {}
-        v[c_cls] = v.get(c_cls, 0.0) + W_C * c_sc
-        v[n_cls] = v.get(n_cls, 0.0) + W_N * n_sc
-        cls = max(v, key=v.get)
-        norm = v[cls] / (W_C + W_N)
-        conf = max(88, min(93, int(88 + (norm - 0.50) * 10)))
-        acc = "~88-91%"
-
-    urgency, color, emoji, summary = CNN_META.get(cls, ("Low", "#888", "?", "Unknown."))
+            n_cls,n_sc = c_cls,c_sc*0.8
+        W_C,W_N = 0.55,0.45; v: dict = {}
+        v[c_cls] = v.get(c_cls,0.0)+W_C*c_sc; v[n_cls] = v.get(n_cls,0.0)+W_N*n_sc
+        cls = max(v,key=v.get); norm = v[cls]/(W_C+W_N)
+        conf = max(88,min(93,int(88+(norm-0.50)*10))); acc = "~88-91%"
+    urgency,color,badge,summary = CNN_META.get(cls,("Low","#888","?","Unknown."))
     return {
-        "status": cls,
-        "confidence": conf,
-        "urgency": urgency,
-        "color": color,
-        "emoji": emoji,
-        "summary": summary,
-        "symptoms": CNN_SYMPTOMS.get(cls, []),
-        "recommendations": CNN_RECS.get(cls, []),
-        "model_info": {
-            "backbone": "EfficientNetB0",
-            "accuracy": acc,
-            "fine_tuned": finetuned,
-        },
+        "status": cls, "confidence": conf, "urgency": urgency, "color": color,
+        "badge": badge, "summary": summary,
+        "symptoms": CNN_SYMPTOMS.get(cls,[]), "recommendations": CNN_RECS.get(cls,[]),
+        "_cnn_info": {"model": "EfficientNetB0 (fine-tuned)" if finetuned else "EfficientNetB0 + Colour Ensemble",
+                      "input_size": "224x224", "classes": len(CNN_CLASSES),
+                      "is_pretrained": finetuned, "accuracy_est": acc},
     }
 
-# Pydantic models for growth/color models 
+# Growth / colour model classes  (inline — no external file needed)
+try:
+    import torch
+    import torch.nn as nn
+
+    class GrowthPredictor(nn.Module):
+        """Simple MLP that predicts height growth (cm) from 9 numeric features."""
+        def __init__(self, input_size: int = 9):
+            super().__init__()
+            self.net = nn.Sequential(
+                nn.Linear(input_size, 128), nn.ReLU(),
+                nn.Linear(128, 64),         nn.ReLU(),
+                nn.Linear(64, 32),          nn.ReLU(),
+                nn.Linear(32, 1),
+            )
+            self.register_buffer("X_mean", torch.zeros(input_size))
+            self.register_buffer("X_std",  torch.ones(input_size))
+
+        def forward(self, x: "torch.Tensor") -> "torch.Tensor":
+            return self.net(x).squeeze(-1)
+
+    class ColorPredictor(nn.Module):
+        """Simple MLP that predicts plant colour class (5 classes) from 14 features."""
+        def __init__(self, input_size: int = 14, hidden_size: int = 32):
+            super().__init__()
+            self.net = nn.Sequential(
+                nn.Linear(input_size, hidden_size), nn.ReLU(),
+                nn.Linear(hidden_size, hidden_size), nn.ReLU(),
+                nn.Linear(hidden_size, 5),
+            )
+            self.register_buffer("X_mean", torch.zeros(input_size))
+            self.register_buffer("X_std",  torch.ones(input_size))
+
+        def forward(self, x: "torch.Tensor") -> "torch.Tensor":
+            return self.net(x)
+
+    TORCH_OK = True
+    print("[Torch] GrowthPredictor and ColorPredictor defined successfully.")
+
+except ImportError:
+    TORCH_OK = False
+    print("[Torch] PyTorch not installed — growth/colour prediction unavailable.")
+
+# Pydantic model – growth / colour prediction
 class DataVector(BaseModel):
-    days_passed: float
-    avg_direct_light: float
+    user_id:            Optional[int] = None
+    days_passed:        float
+    avg_direct_light:   float
     avg_indirect_light: float
-    avg_nighttime: float
-    avg_temp: float
-    min_temp: float
-    max_temp: float
-    times_watered: float
-    initial_height: float
-    color_before: List[int]
+    avg_nighttime:      float
+    avg_temp:           float
+    min_temp:           float
+    max_temp:           float
+    times_watered:      float
+    initial_height:     float
+    color_before:       List[int]
 
-# Loading grwoth/color models
-growth_model = GrowthPredictor(9)
-color_model = ColorPredictor(14, 20)
+# Load / initialise growth models at startup
+_growth_model = None
+_color_model  = None
 
-# 5. FastAPI app – combined endpoints
+GROWTH_MODEL_PATH = Path("growth_predictor.pt")
+COLOR_MODEL_PATH  = Path("color_predictor.pt")
 
-app = FastAPI(title="Plant Care Unified API")
+def _load_torch_models():
+    global _growth_model, _color_model
+    if not TORCH_OK:
+        print("[Torch] Skipping model load — PyTorch not available.")
+        return
+    try:
+        import torch
+        gm = GrowthPredictor(9)
+        cm = ColorPredictor(14, 32)
 
-# --- Recommendation endpoints ---
+        # Load saved weights if checkpoint files exist
+        if GROWTH_MODEL_PATH.exists():
+            state = torch.load(str(GROWTH_MODEL_PATH), map_location="cpu")
+            gm.load_state_dict(state, strict=False)
+            print(f"[Torch] Loaded growth weights from {GROWTH_MODEL_PATH}")
+        else:
+            print("[Torch] No growth checkpoint found — using untrained weights (random predictions).")
+
+        if COLOR_MODEL_PATH.exists():
+            state = torch.load(str(COLOR_MODEL_PATH), map_location="cpu")
+            cm.load_state_dict(state, strict=False)
+            print(f"[Torch] Loaded colour weights from {COLOR_MODEL_PATH}")
+        else:
+            print("[Torch] No colour checkpoint found — using untrained weights (random predictions).")
+
+        gm.eval(); cm.eval()
+        _growth_model = gm
+        _color_model  = cm
+        print("[Torch] Growth and colour models ready.")
+    except Exception as e:
+        print(f"[Torch] Model load failed: {e}")
+
+# FastAPI app
+app = FastAPI(title="Plant Care Unified API", version="2.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.on_event("startup")
+def _startup():
+    _load_torch_models()
+
 @app.get("/", include_in_schema=False)
 def root():
     return RedirectResponse(url="/docs")
 
+@app.get("/api/health")
+def health():
+    return {
+        "success": True, "status": "ok", "version": "2.0.0",
+        "models": {
+            "detection": "loaded",
+            "growth":    "loaded" if _growth_model else "unavailable",
+            "colour":    "loaded" if _color_model  else "unavailable",
+        },
+    }
+
 @app.get("/recommend", include_in_schema=False)
 def recommend_help():
-    return {"message": "This endpoint requires a POST request with JSON body. Use /docs."}
+    return {"message": "POST to /recommend with JSON body. See /docs."}
 
 @app.post("/recommend", response_model=List[PlantRecommendation])
 def get_recommendations(prefs: UserPreferences):
-    user_dict = prefs.dict()
-    results = recommend_plants(user_dict, top_n=5)
-    output = []
+    results = recommend_plants(prefs.dict(), top_n=5)
+    output  = []
     for plant_name, score in results:
-        plant_row = df_plants[df_plants["name"] == plant_name].iloc[0]
+        row = df_plants[df_plants["name"] == plant_name].iloc[0]
         output.append(PlantRecommendation(
-            name=plant_name,
-            pet_safe=bool(plant_row["pet_safe"]),
-            space=plant_row["space"],
-            water=int(plant_row["water"]),
-            sunlight=int(plant_row["sunlight"]),
-            temperature=int(plant_row["temperature"]),
-            pollen_allergies=bool(plant_row["pollen_allergies"]),
-            existing_plants=plant_row["existing_plants"],
-            score=round(score, 4)
+            name=plant_name, pet_safe=bool(row["pet_safe"]), space=row["space"],
+            water=int(row["water"]), sunlight=int(row["sunlight"]),
+            temperature=int(row["temperature"]), pollen_allergies=bool(row["pollen_allergies"]),
+            existing_plants=row["existing_plants"], score=round(score, 4),
         ))
     return output
-
-# --- Detection endpoints ---
-@app.get("/api/health")
-def health():
-    return {"success": True, "status": "ok", "version": "1.0.0"}
 
 @app.post("/api/detect")
 async def detect(image: UploadFile = File(...)):
     try:
         from PIL import Image
         data = await image.read()
-        img = Image.open(io.BytesIO(data)); img.verify()
-        img = Image.open(io.BytesIO(data))
-        t0 = time.perf_counter()
-        res = _infer(img)
-        res.update({"success": True, "ms": int((time.perf_counter() - t0) * 1000)})
+        img  = Image.open(io.BytesIO(data)); img.verify()
+        img  = Image.open(io.BytesIO(data))
+        t0   = time.perf_counter()
+        res  = _infer(img)
+        res.update({"success": True, "ms": int((time.perf_counter()-t0)*1000)})
         return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -425,52 +456,65 @@ class DetectBase64Request(BaseModel):
 def detect_b64(body: DetectBase64Request):
     try:
         from PIL import Image
-        s = body.image
-        s = s.split(",", 1)[1] if "," in s else s
+        s = body.image; s = s.split(",",1)[1] if "," in s else s
         data = base64.b64decode(s)
-        img = Image.open(io.BytesIO(data)); img.verify()
-        img = Image.open(io.BytesIO(data))
-        t0 = time.perf_counter()
-        res = _infer(img)
-        res.update({"success": True, "ms": int((time.perf_counter() - t0) * 1000)})
+        img  = Image.open(io.BytesIO(data)); img.verify()
+        img  = Image.open(io.BytesIO(data))
+        t0   = time.perf_counter()
+        res  = _infer(img)
+        res.update({"success": True, "ms": int((time.perf_counter()-t0)*1000)})
         return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-# --- Prediction endpoints ---
+
+@app.post("/fwd")
 @app.post("/growth")
-async def fwd(vector: DataVector):
+async def predict_growth(vector: DataVector):
+    if not TORCH_OK:
+        raise HTTPException(status_code=503,
+            detail="PyTorch is not installed. Run: pip install torch")
+    if _growth_model is None or _color_model is None:
+        raise HTTPException(status_code=503,
+            detail="Growth/colour models failed to initialise. Check server logs.")
+    import torch
 
-    flat_vector = list(vector.model_dump().values())
-    flat_vector.pop()
-    inp = torch.tensor(flat_vector, dtype=torch.float32).unsqueeze(0)
+    numeric = [
+        vector.days_passed, vector.avg_direct_light, vector.avg_indirect_light,
+        vector.avg_nighttime, vector.avg_temp, vector.min_temp, vector.max_temp,
+        vector.times_watered, vector.initial_height,
+    ]
+    color_oh = list(vector.color_before)
 
-    inp_norm = (inp - growth_model.X_mean) / (growth_model.X_std + 1e-8)
-    
-    inp_c = torch.tensor(flat_vector).unsqueeze(0)
-    inp_cb = torch.tensor(vector.color_before).unsqueeze(0)
-    inp_c_norm = (inp_c - color_model.X_mean) / (color_model.X_std)
-    inp_c_final = torch.cat([inp_c_norm, inp_cb], dim=1)
+    inp_growth = torch.tensor(numeric, dtype=torch.float32).unsqueeze(0)
+    inp_color  = torch.tensor(numeric + color_oh, dtype=torch.float32).unsqueeze(0)
 
-    growth_model.eval()
-    color_model.eval()
+    try:
+        inp_growth_n = (inp_growth - _growth_model.X_mean) / (_growth_model.X_std + 1e-8)
+    except Exception:
+        inp_growth_n = inp_growth
+    try:
+        inp_color_n = (inp_color - _color_model.X_mean) / (_color_model.X_std + 1e-8)
+    except Exception:
+        inp_color_n = inp_color
+
     with torch.no_grad():
-        pred = growth_model(inp_norm).item()
+        growth_pred = float(_growth_model(inp_growth_n).item())
+        logits      = _color_model(inp_color_n)
+        color_idx   = int(torch.argmax(torch.softmax(logits, dim=1), dim=1).item())
 
-        logits = color_model(inp_c_final)
-        probs = torch.softmax(logits, dim=1)
-        color = torch.argmax(probs, dim=1).item()
-    
-    return {"guess" : pred, "color": color}
+    return {
+        "guess": round(growth_pred, 3),
+        "color": color_idx,
+        "inputs": {"numeric": numeric, "color_before": color_oh},
+    }
 
-# 6. Run the server
-
+# Entry point
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=5000)
+    parser.add_argument("--host",   default="0.0.0.0")
+    parser.add_argument("--port",   type=int, default=5000)
     parser.add_argument("--reload", action="store_true")
     args = parser.parse_args()
-    print(f"Unified API → http://{args.host}:{args.port}  |  Docs: http://{args.host}:{args.port}/docs")
+    print(f"Unified API  →  http://{args.host}:{args.port}  |  Docs: http://{args.host}:{args.port}/docs")
     uvicorn.run("api:app", host=args.host, port=args.port, reload=args.reload)
