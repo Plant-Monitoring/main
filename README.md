@@ -1,24 +1,24 @@
-## 🔧 Razvojna veja (develop)
+## Razvojna veja (develop)
 
-### 📌 Pregled veje
+### Pregled veje
 
-Veja `develop` predstavlja primarno razvojno in integracijsko okolje projekta.  
-V tej veji se združujejo in validirajo vse nove funkcionalnosti pred vključitvijo v stabilno produkcijsko vejo (`main`).
+Veja `develop` predstavlja primarno razvojno in integracijsko okolje projekta.
+V njej se združujejo in validirajo vse nove funkcionalnosti pred vključitvijo v stabilno produkcijsko vejo (`main`).
 
-Gre za centralno integracijsko plast sistema, kjer se preverja skladnost, stabilnost in medsebojno delovanje vseh modulov.
+Gre za centralno integracijsko plast sistema, kjer se preverjajo skladnost, stabilnost in medsebojno delovanje vseh modulov.
 
-### 🎯 Namen
+### Namen
 
-Glavni cilj veje `develop` je:
+Glavni cilji veje `develop` so:
 
-- zagotoviti stabilno integracijo funkcionalnosti iz `feature/*` vej
+- zagotoviti stabilno integracijo funkcionalnosti iz vej `feature/*`
 - omogočiti sistemsko testiranje celotne aplikacije
-- identificirati in odpraviti napake pred izdajo stabilne verzije
+- identificirati in odpraviti napake pred izdajo stabilne različice
 - pripraviti preverjeno kodo za prehod v produkcijsko vejo (`main`)
 
 Veja deluje kot kontrolna točka pred produkcijsko izdajo.
 
-### 🏗️ Vsebina veje
+### Vsebina veje
 
 Veja `develop` vključuje:
 
@@ -27,16 +27,16 @@ Veja `develop` vključuje:
 - eksperimentalne optimizacije
 - začasne implementacije za validacijo delovanja sistema kot celote
 
-### 📜 Pravila uporabe
+### Pravila uporabe
 
 Za ohranjanje pregledne razvojne strukture veljajo naslednja pravila:
 
-- nove funkcionalnosti se razvijajo izključno v `feature/*` vejah
+- nove funkcionalnosti se razvijajo izključno v vejah `feature/*`
 - veja `develop` služi kot integracijsko okolje
 - združevanje (merge) v `main` je dovoljeno samo iz veje `develop`
-- pred združitvijo v `main` mora biti zagotovljena stabilnost in osnovno testiranje sistema
+- pred združitvijo v `main` morata biti zagotovljeni stabilnost in osnovno testiranje sistema
 
-### 🚀 Trenutno stanje
+### Trenutno stanje
 
 - aktivna integracija posameznih modulov
 - sistemsko testiranje stabilnosti
