@@ -31,6 +31,8 @@ class DashboardPage(BasePage):
         self._ph_file_var   = tk.StringVar(value="No image selected")
         self._ph_result_var = tk.StringVar(value="")
         self._ph_pot_var    = tk.StringVar(value="9.0")
+        self._ph_fig        = None
+        self._ph_fig_canvas = None
 
         # Scrollable main area
         outer_canvas = tk.Canvas(self, bg=BG_MAIN, highlightthickness=0)
@@ -188,6 +190,10 @@ class DashboardPage(BasePage):
                                         wraplength=720, justify="left")
         self._ph_result_lbl.pack(anchor="w", pady=(12,0))
 
+        # annotated result image (filled in after a measurement)
+        self._ph_image_frame = tk.Frame(body, bg=BG_CARD)
+        self._ph_image_frame.pack(fill="x", pady=(10,0))
+
     def _ph_upload(self):
         path = filedialog.askopenfilename(
             title="Select Plant Photo",
@@ -215,23 +221,85 @@ class DashboardPage(BasePage):
         def _run():
             try:
                 if method == "color":
-                    h = measure_plant_height_color(self._ph_image_path, pot_height_cm=pot_cm)
+                    result = measure_plant_height_color(self._ph_image_path, pot_height_cm=pot_cm)
                 else:
-                    h = measure_plant_height_edge(self._ph_image_path, pot_height_cm=pot_cm)
-                self.after(0, lambda: self._ph_show(h, label))
+                    result = measure_plant_height_edge(self._ph_image_path, pot_height_cm=pot_cm)
+                self.after(0, lambda: self._ph_show(result, label))
             except Exception as ex:
                 self.after(0, lambda e=ex: self._ph_error(str(e)))
         threading.Thread(target=_run, daemon=True).start()
 
-    def _ph_show(self, height_cm, label):
+    def _ph_clear_image(self):
+        if getattr(self, "_ph_fig_canvas", None) is not None:
+            try: self._ph_fig_canvas.get_tk_widget().destroy()
+            except: pass
+            self._ph_fig_canvas = None
+        if getattr(self, "_ph_fig", None) is not None:
+            try: plt.close(self._ph_fig)
+            except: pass
+            self._ph_fig = None
+
+    def _ph_show(self, result, label):
+        height = result.get("height_cm", 0.0)
         self._ph_result_lbl.config(fg=ACCENT)
-        self._ph_result_var.set(f"🌱  Estimated height: {height_cm:.2f} cm    ({label})")
+        self._ph_result_var.set(f"🌱  Estimated height: {height:.2f} cm    ({label})")
+        self._ph_draw(result, label)
+
+    def _ph_draw(self, result, label):
+        self._ph_clear_image()
+        img = result.get("image")
+        if img is None:
+            return
+        orientation = result.get("orientation", "horizontal")
+        lines = result.get("lines", [])
+        span  = result.get("span")
+        height = result.get("height_cm", 0.0)
+        cmap = {"cyan": "#22d3ee", "lime": "#22c55e", "orange": "#fb923c", "red": "#f43f5e"}
+
+        H, W = img.shape[0], img.shape[1]
+        fig, ax = plt.subplots(figsize=(5.6, 4.4))
+        self._ph_fig = fig
+        fig.patch.set_facecolor(BG_CARD)
+        ax.imshow(img)
+
+        for pos, color, text in lines:
+            c = cmap.get(color, "#ffffff")
+            if orientation == "horizontal":
+                ax.axhline(pos, color=c, lw=1.6)
+                ax.text(W * 0.01, pos - 4, text, color=c, fontsize=7, va="bottom")
+            else:
+                ax.axvline(pos, color=c, lw=1.6)
+                ax.text(pos + 4, H * 0.02, text, color=c, fontsize=7, rotation=90, va="top")
+
+        if span:
+            a, b = span
+            if orientation == "horizontal":
+                x = W * 0.92
+                ax.annotate("", xy=(x, max(a, b)), xytext=(x, min(a, b)),
+                            arrowprops=dict(arrowstyle="<->", color="#ffffff", lw=1.4))
+                ax.text(W * 0.94, (a + b) / 2, f"{height:.1f} cm", color="#ffffff",
+                        fontsize=9, va="center")
+            else:
+                y = H * 0.92
+                ax.annotate("", xy=(max(a, b), y), xytext=(min(a, b), y),
+                            arrowprops=dict(arrowstyle="<->", color="#ffffff", lw=1.4))
+                ax.text((a + b) / 2, H * 0.96, f"{height:.1f} cm", color="#ffffff",
+                        fontsize=9, ha="center")
+
+        ax.set_title(f"{label}: {height:.2f} cm", color=TEXT_PRI, fontsize=10, loc="left")
+        ax.axis("off")
+        fig.tight_layout(pad=0.6)
+
+        self._ph_fig_canvas = FigureCanvasTkAgg(fig, master=self._ph_image_frame)
+        self._ph_fig_canvas.draw()
+        self._ph_fig_canvas.get_tk_widget().pack(fill="x")
 
     def _ph_error(self, msg):
+        self._ph_clear_image()
         self._ph_result_lbl.config(fg=RED)
         self._ph_result_var.set(f"⚠  {msg}")
 
-    # Light-data file handling 
+    # Light-data file handling
     def _load_file(self):
         path = filedialog.askopenfilename(
             title="Open Light Data File",
