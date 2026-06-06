@@ -1,7 +1,11 @@
 import tkinter as tk
 from tkinter import messagebox
 
-from .theme import *
+from .theme import (
+    BG_MAIN, BG_CARD, BG_GLASS, ACCENT, ACCENT2, BLUE, RED, PURPLE, TEAL, ORANGE, TEXT_PRI,
+    TEXT_SEC, TEXT_MUT, BORDER, BORDER2, ON_ACCENT, USERS, bind_tree, hover, GreenSlider,
+    BasePage
+)
 
 class SettingsPage(BasePage):
     def _build(self):
@@ -81,7 +85,7 @@ class SettingsPage(BasePage):
         self._points_var  = toggle_item(display_inner, "Show data points",      "Scatter markers on line charts",False)
         self._compact_var = toggle_item(display_inner, "Compact sidebar",       "Collapse labels in navigation", False, is_last=True)
 
-        # Data section
+        # Data section 
         data_inner = section(content, "Data & History", BLUE)
         data_inner.pack(fill="x")
         ret_row = tk.Frame(data_inner, bg=BG_CARD); ret_row.pack(fill="x", pady=(8,0))
@@ -123,7 +127,7 @@ class SettingsPage(BasePage):
         tk.Frame(api_inner, bg=BORDER, height=1).pack(fill="x", pady=(8,0))
         self._timeout_var = toggle_item(api_inner, "Strict API timeout", "Fail fast after 10 seconds", True, is_last=True)
 
-        # Account section 
+        # Account section
         acc_inner = section(content, "Account", RED)
         acc_inner.pack(fill="x")
         acc_row = tk.Frame(acc_inner, bg=BG_CARD); acc_row.pack(fill="x", pady=(8,14))
@@ -143,7 +147,7 @@ class SettingsPage(BasePage):
         save_btn = tk.Frame(save_row, bg=PURPLE, cursor="hand2", padx=24, pady=10)
         save_btn.pack(side="right")
         tk.Label(save_btn, text="Save Settings", font=("Segoe UI",10,"bold"),
-                 bg=PURPLE, fg=BG_MAIN).pack()
+                 bg=PURPLE, fg=ON_ACCENT).pack()
         bind_tree(save_btn, "<Button-1>",
                   lambda e: messagebox.showinfo("Settings", "Settings saved successfully!"))
         hover(save_btn, PURPLE, "#8b6ee8")

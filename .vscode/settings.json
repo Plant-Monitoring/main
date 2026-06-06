@@ -1,4 +1,11 @@
 {
     "python.defaultInterpreterPath": "/home/anastasija/Desktop/FERI/2 semester/pp/projekt/main/ui/venv/bin/python",
-    "python.analysis.typeCheckingMode": "off"
+    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.extraPaths": [
+        ".",
+        "./ui"
+    ],
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingImports": "none"
+    }
 }

@@ -2,28 +2,141 @@ import os
 import json
 import datetime
 import tkinter as tk
+import tkinter.font as tkfont
 
-# Colour palette
-BG_MAIN   = "#080b12"
-BG_SIDE   = "#0d1117"
-BG_CARD   = "#111520"
-BG_CARD2  = "#161b2a"
-BG_GLASS  = "#1a2035"
-ACCENT    = "#00e5a0"
-ACCENT2   = "#00b37e"
-BLUE      = "#38bdf8"
-BLUE2     = "#0ea5e9"
-RED       = "#f43f5e"
-YELLOW    = "#fbbf24"
-PURPLE    = "#a78bfa"
-TEAL      = "#2dd4bf"
-ORANGE    = "#fb923c"
-TEXT_PRI  = "#f0f4ff"
-TEXT_SEC  = "#8b95a8"
-TEXT_MUT  = "#3a4259"
-BORDER    = "#1e2638"
-BORDER2   = "#253047"
-GLOW      = "#0d2b22"
+# Data location (the ui/ folder, parent of this pages/ package)
+_PKG_DIR   = os.path.dirname(os.path.abspath(__file__))   # .../ui/pages
+APP_DIR    = os.path.dirname(_PKG_DIR)                    # .../ui
+GALLERY_DB = os.path.join(APP_DIR, "gallery_data.json")
+HISTORY_DB = os.path.join(APP_DIR, "history_data.json")
+_THEME_DB  = os.path.join(APP_DIR, "theme_data.json")
+
+# Colour tokens that make up a palette
+_COLOR_KEYS = [
+    "BG_MAIN", "BG_SIDE", "BG_CARD", "BG_CARD2", "BG_GLASS",
+    "ACCENT", "ACCENT2", "BLUE", "BLUE2", "RED", "YELLOW", "PURPLE", "TEAL", "ORANGE",
+    "TEXT_PRI", "TEXT_SEC", "TEXT_MUT", "BORDER", "BORDER2", "GLOW", "ON_ACCENT",
+]
+
+# Dark palette (the original look)
+DARK = {
+    "BG_MAIN":   "#080b12",
+    "BG_SIDE":   "#0d1117",
+    "BG_CARD":   "#111520",
+    "BG_CARD2":  "#161b2a",
+    "BG_GLASS":  "#1a2035",
+    "ACCENT":    "#00e5a0",
+    "ACCENT2":   "#00b37e",
+    "BLUE":      "#38bdf8",
+    "BLUE2":     "#0ea5e9",
+    "RED":       "#f43f5e",
+    "YELLOW":    "#fbbf24",
+    "PURPLE":    "#a78bfa",
+    "TEAL":      "#2dd4bf",
+    "ORANGE":    "#fb923c",
+    "TEXT_PRI":  "#f0f4ff",
+    "TEXT_SEC":  "#8b95a8",
+    "TEXT_MUT":  "#3a4259",
+    "BORDER":    "#1e2638",
+    "BORDER2":   "#253047",
+    "GLOW":      "#0d2b22",
+    "ON_ACCENT": "#080b12",   # dark text on bright buttons
+}
+
+# Light palette (gray background)
+LIGHT = {
+    "BG_MAIN":   "#e5e7eb",   # gray page background
+    "BG_SIDE":   "#d1d5db",   # slightly darker sidebar
+    "BG_CARD":   "#f8fafc",   # near-white cards
+    "BG_CARD2":  "#e9edf2",   # hover
+    "BG_GLASS":  "#eef1f5",   # subtle panel
+    "ACCENT":    "#059669",
+    "ACCENT2":   "#047857",
+    "BLUE":      "#2563eb",
+    "BLUE2":     "#1d4ed8",
+    "RED":       "#dc2626",
+    "YELLOW":    "#d97706",
+    "PURPLE":    "#7c3aed",
+    "TEAL":      "#0d9488",
+    "ORANGE":    "#ea580c",
+    "TEXT_PRI":  "#0f172a",   # dark text
+    "TEXT_SEC":  "#475569",
+    "TEXT_MUT":  "#94a3b8",
+    "BORDER":    "#cbd5e1",
+    "BORDER2":   "#b6c2d1",
+    "GLOW":      "#bbf7d0",
+    "ON_ACCENT": "#ffffff",   # white text on saturated buttons
+}
+
+THEMES = {"dark": DARK, "light": LIGHT}
+
+
+def _load_mode():
+    try:
+        with open(_THEME_DB, "r", encoding="utf-8") as f:
+            return json.load(f).get("mode", "dark")
+    except Exception:
+        return "dark"
+
+def _save_mode(mode):
+    try:
+        with open(_THEME_DB, "w", encoding="utf-8") as f:
+            json.dump({"mode": mode}, f)
+    except Exception:
+        pass
+
+
+CURRENT_MODE = _load_mode()
+if CURRENT_MODE not in THEMES:
+    CURRENT_MODE = "dark"
+
+# Expose the active palette as module-level names (BG_MAIN, ACCENT, ...)
+# Static definitions so static analysers (Pylance) know these names exist.
+# These are overwritten at runtime by globals().update() below and by apply_mode().
+BG_MAIN   = DARK["BG_MAIN"]
+BG_SIDE   = DARK["BG_SIDE"]
+BG_CARD   = DARK["BG_CARD"]
+BG_CARD2  = DARK["BG_CARD2"]
+BG_GLASS  = DARK["BG_GLASS"]
+ACCENT    = DARK["ACCENT"]
+ACCENT2   = DARK["ACCENT2"]
+BLUE      = DARK["BLUE"]
+BLUE2     = DARK["BLUE2"]
+RED       = DARK["RED"]
+YELLOW    = DARK["YELLOW"]
+PURPLE    = DARK["PURPLE"]
+TEAL      = DARK["TEAL"]
+ORANGE    = DARK["ORANGE"]
+TEXT_PRI  = DARK["TEXT_PRI"]
+TEXT_SEC  = DARK["TEXT_SEC"]
+TEXT_MUT  = DARK["TEXT_MUT"]
+BORDER    = DARK["BORDER"]
+BORDER2   = DARK["BORDER2"]
+GLOW      = DARK["GLOW"]
+ON_ACCENT = DARK["ON_ACCENT"]
+
+# Apply the persisted palette (overwrites the defaults above with the saved mode)
+globals().update(THEMES[CURRENT_MODE])
+
+
+def apply_mode(mode):
+    """Switch palette and push new colour values into every module that uses them."""
+    import sys
+    global CURRENT_MODE
+    if mode not in THEMES:
+        mode = "dark"
+    CURRENT_MODE = mode
+    _save_mode(mode)
+    palette = THEMES[mode]
+    globals().update(palette)
+    for mod_name, module in list(sys.modules.items()):
+        if module is None:
+            continue
+        if mod_name == "__main__" or mod_name == "main" or mod_name.startswith("pages"):
+            for k, v in palette.items():
+                if hasattr(module, k):
+                    setattr(module, k, v)
+
 
 # Users (in-memory accounts for this session)
 USERS = {
@@ -31,12 +144,6 @@ USERS = {
     "David":      "plant123",
     "Damjan":     "plant123",
 }
-
-# Data location (the ui/ folder, parent of this pages/ package)
-_PKG_DIR   = os.path.dirname(os.path.abspath(__file__))   
-APP_DIR    = os.path.dirname(_PKG_DIR)                    
-GALLERY_DB = os.path.join(APP_DIR, "gallery_data.json")
-HISTORY_DB = os.path.join(APP_DIR, "history_data.json")
 
 # History DB
 def _load_history_db() -> list:
@@ -109,7 +216,7 @@ def hover(widget, bg_normal, bg_hover):
         c.bind("<Enter>", on_enter)
         c.bind("<Leave>", on_leave)
 
-# GreenSlider 
+# GreenSlider
 class GreenSlider(tk.Frame):
     def __init__(self, parent, from_, to, variable, resolution=0.5, length=260, **kw):
         super().__init__(parent, bg=BG_CARD, height=24)
@@ -137,17 +244,13 @@ class GreenSlider(tk.Frame):
     def _redraw(self, *_):
         c=self._canvas; w=c.winfo_width() or self._len
         c.delete("all")
-        # Track
         c.create_rectangle(10, 10, w-10, 14, fill=BG_GLASS, outline=BORDER2)
         val=self._var.get(); tx=self._x_for_val(val, w)
-        # Fill
         c.create_rectangle(10, 10, tx, 14, fill=ACCENT, outline="")
-        # Glow dots on track
         steps=8
         for i in range(1, steps):
             sx = int(10 + i*(tx-10)/steps)
             c.create_oval(sx-1, 11, sx+1, 13, fill=ACCENT2, outline="")
-        # Thumb with glow
         c.create_oval(tx-10, 2, tx+10, 22, fill=ACCENT, outline=ACCENT2, width=2)
         c.create_oval(tx-5,  7, tx+5,  17, fill=BG_MAIN, outline="")
 
@@ -171,7 +274,8 @@ class BasePage(tk.Frame):
         self.f_label = ("Segoe UI", 9, "bold")
         self._build()
 
-    def _section_header(self, parent, text, color=ACCENT):
+    def _section_header(self, parent, text, color=None):
+        color = color or ACCENT
         row = tk.Frame(parent, bg=BG_MAIN)
         row.pack(fill="x", pady=(0,10))
         tk.Frame(row, bg=color, width=4, height=18).pack(side="left")
@@ -180,18 +284,31 @@ class BasePage(tk.Frame):
 
     def _card(self, parent, padx=16, pady=12, **kw):
         f = tk.Frame(parent, bg=BG_CARD, padx=padx, pady=pady, **kw)
-        # subtle top accent line
         tk.Frame(f, bg=BORDER2, height=1).pack(fill="x", pady=(0,8))
         return f
 
     def _build(self): pass
 
-__all__ = [
-    "BG_MAIN", "BG_SIDE", "BG_CARD", "BG_CARD2", "BG_GLASS", "ACCENT", "ACCENT2",
-    "BLUE", "BLUE2", "RED", "YELLOW", "PURPLE", "TEAL", "ORANGE",
-    "TEXT_PRI", "TEXT_SEC", "TEXT_MUT", "BORDER", "BORDER2", "GLOW",
+_EMOJI_FAMILY = None
+
+def emoji_font(size=12, weight="normal"):
+    global _EMOJI_FAMILY
+    if _EMOJI_FAMILY is None:
+        prefer = ["Symbola", "Noto Emoji", "Noto Color Emoji",
+                  "Segoe UI Emoji", "Apple Color Emoji", "DejaVu Sans"]
+        try:
+            avail = set(tkfont.families())
+        except Exception:
+            avail = set()
+        _EMOJI_FAMILY = next((f for f in prefer if f in avail), "DejaVu Sans")
+    if weight and weight != "normal":
+        return (_EMOJI_FAMILY, size, weight)
+    return (_EMOJI_FAMILY, size)
+
+__all__ = _COLOR_KEYS + [
+    "THEMES", "CURRENT_MODE", "apply_mode",
     "USERS", "APP_DIR", "GALLERY_DB", "HISTORY_DB",
-    "bind_tree", "hover", "GreenSlider", "BasePage",
+    "bind_tree", "hover", "GreenSlider", "BasePage", "emoji_font",
     "_load_history_db", "_save_history_db", "_prune_old_entries",
     "_load_gallery_db", "_save_gallery_db",
 ]

@@ -6,7 +6,12 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from .theme import *
+from .theme import (
+    BG_MAIN, BG_SIDE, BG_CARD, BG_GLASS, ACCENT, BLUE, RED, TEAL, ORANGE, TEXT_PRI,
+    TEXT_SEC, TEXT_MUT, BORDER, bind_tree, hover, BasePage, _load_history_db,
+    _save_history_db, _prune_old_entries
+)
+
 
 class HistoryPage(BasePage):
     def _build(self):

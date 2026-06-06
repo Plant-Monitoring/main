@@ -2,7 +2,10 @@ import os
 import tkinter as tk
 from tkinter import messagebox
 
-from .theme import *
+from .theme import (
+    BG_MAIN, BG_GLASS, ACCENT, ACCENT2, RED, TEXT_PRI, TEXT_SEC, ON_ACCENT, USERS,
+    bind_tree, hover
+)
 
 class AuthWindow(tk.Tk):
     def __init__(self):
@@ -45,7 +48,7 @@ class AuthWindow(tk.Tk):
         inner = tk.Frame(btn, bg=ACCENT)
         inner.pack(fill="x")
         tk.Label(inner, text=text, font=("Segoe UI", 10, "bold"),
-                 bg=ACCENT, fg=BG_MAIN, pady=11).pack()
+                 bg=ACCENT, fg=ON_ACCENT, pady=11).pack()
         bind_tree(btn, "<Button-1>", lambda e: command())
         hover(btn, ACCENT, ACCENT2)
 

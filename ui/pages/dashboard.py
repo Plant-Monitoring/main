@@ -10,9 +10,12 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from .theme import *
+from .theme import (
+    BG_MAIN, BG_CARD, BG_CARD2, BG_GLASS, ACCENT, ACCENT2, BLUE, BLUE2, RED, PURPLE, TEAL,
+    ORANGE, TEXT_PRI, TEXT_SEC, TEXT_MUT, BORDER, ON_ACCENT, bind_tree, hover, BasePage,
+    _load_history_db, _save_history_db, _prune_old_entries
+)
 from models.plant_height import measure_plant_height_color, measure_plant_height_edge
-
 
 class DashboardPage(BasePage):
     def _build(self):
@@ -42,7 +45,7 @@ class DashboardPage(BasePage):
         outer_canvas.bind("<MouseWheel>", lambda e: outer_canvas.yview_scroll(-1*(e.delta//120),"units"))
         pad.bind("<MouseWheel>", lambda e: outer_canvas.yview_scroll(-1*(e.delta//120),"units"))
 
-        #  Hero header 
+        # Hero header
         hero = tk.Frame(pad, bg=BG_GLASS, padx=24, pady=20)
         hero.pack(fill="x", padx=22, pady=(18,0))
         tk.Frame(hero, bg=ACCENT, width=4).pack(side="left", fill="y", padx=(0,16))
@@ -55,9 +58,9 @@ class DashboardPage(BasePage):
         # File button
         file_btn = tk.Frame(hero, bg=ACCENT, cursor="hand2", padx=16, pady=0)
         file_btn.pack(side="right", fill="y")
-        icon_lbl = tk.Label(file_btn, text="📂", font=("Segoe UI",12), bg=ACCENT, fg=BG_MAIN)
+        icon_lbl = tk.Label(file_btn, text="📂", font=("Segoe UI",12), bg=ACCENT, fg=ON_ACCENT)
         icon_lbl.pack()
-        tk.Label(file_btn, text="ADD FILE", font=("Segoe UI",8,"bold"), bg=ACCENT, fg=BG_MAIN).pack()
+        tk.Label(file_btn, text="ADD FILE", font=("Segoe UI",8,"bold"), bg=ACCENT, fg=ON_ACCENT).pack()
         bind_tree(file_btn, "<Button-1>", lambda e: self._load_file())
         hover(file_btn, ACCENT, ACCENT2)
 
@@ -65,7 +68,7 @@ class DashboardPage(BasePage):
                                         font=self.f_small, bg=BG_MAIN, fg=ACCENT)
         self._file_name_lbl.pack(anchor="e", padx=22, pady=(4,0))
 
-        #  Stat cards row 
+        # Stat cards row
         stats_row = tk.Frame(pad, bg=BG_MAIN)
         stats_row.pack(fill="x", padx=22, pady=(14,0))
         configs = [
@@ -89,7 +92,7 @@ class DashboardPage(BasePage):
                      fg=TEXT_SEC).pack(side="left", padx=(4,0), pady=(8,0))
             tk.Label(inner, text=desc, font=("Segoe UI",7), bg=BG_CARD, fg=TEXT_MUT).pack(anchor="w")
 
-        # Chart area 
+        # Chart area
         chart_outer = tk.Frame(pad, bg=BG_CARD, padx=0, pady=0)
         chart_outer.pack(fill="x", padx=22, pady=(14,0))
         tk.Frame(chart_outer, bg=BLUE, height=3).pack(fill="x")
@@ -111,10 +114,10 @@ class DashboardPage(BasePage):
         self.chart_frame = tk.Frame(chart_outer, bg=BG_CARD)
         self.chart_frame.pack(fill="both", expand=True)
 
-        # Plant height estimator 
+        # Plant height estimator
         self._build_plant_height(pad)
 
-        # Add plant teaser 
+        # Add plant teaser
         add_card = tk.Frame(pad, bg=BG_GLASS, cursor="hand2", padx=24, pady=18)
         add_card.pack(fill="x", padx=22, pady=(14,22))
         tk.Frame(add_card, bg=ACCENT, width=4).pack(side="left", fill="y", padx=(0,16))
@@ -129,7 +132,7 @@ class DashboardPage(BasePage):
         bind_tree(add_card, "<Button-1>", lambda e: self.app._show_page("My Plants"))
         hover(add_card, BG_GLASS, BG_CARD2)
 
-    # Plant height section 
+    # Plant height section
     def _build_plant_height(self, parent):
         ph_outer = tk.Frame(parent, bg=BG_CARD, padx=0, pady=0)
         ph_outer.pack(fill="x", padx=22, pady=(14,0))
@@ -150,7 +153,7 @@ class DashboardPage(BasePage):
         row1 = tk.Frame(body, bg=BG_CARD); row1.pack(fill="x")
         up_btn = tk.Frame(row1, bg=BLUE, cursor="hand2", padx=14, pady=7)
         up_btn.pack(side="left")
-        tk.Label(up_btn, text="📷  Upload Photo", font=self.f_label, bg=BLUE, fg=BG_MAIN).pack()
+        tk.Label(up_btn, text="📷  Upload Photo", font=self.f_label, bg=BLUE, fg=ON_ACCENT).pack()
         bind_tree(up_btn, "<Button-1>", lambda e: self._ph_upload())
         hover(up_btn, BLUE, BLUE2)
 
@@ -170,12 +173,12 @@ class DashboardPage(BasePage):
         tk.Label(row2, text="Choose a model:", font=self.f_small, bg=BG_CARD, fg=TEXT_SEC).pack(side="left", padx=(0,8))
 
         m1 = tk.Frame(row2, bg=TEAL, cursor="hand2", padx=14, pady=6); m1.pack(side="left", padx=(0,8))
-        tk.Label(m1, text="Model 1 · Colour", font=self.f_label, bg=TEAL, fg=BG_MAIN).pack()
+        tk.Label(m1, text="Model 1 · Colour", font=self.f_label, bg=TEAL, fg=ON_ACCENT).pack()
         bind_tree(m1, "<Button-1>", lambda e: self._ph_measure("color"))
         hover(m1, TEAL, "#1fb3a0")
 
         m2 = tk.Frame(row2, bg=PURPLE, cursor="hand2", padx=14, pady=6); m2.pack(side="left")
-        tk.Label(m2, text="Model 2 · Edge", font=self.f_label, bg=PURPLE, fg=BG_MAIN).pack()
+        tk.Label(m2, text="Model 2 · Edge", font=self.f_label, bg=PURPLE, fg=ON_ACCENT).pack()
         bind_tree(m2, "<Button-1>", lambda e: self._ph_measure("edge"))
         hover(m2, PURPLE, "#8b6ee8")
 

@@ -3,7 +3,10 @@ import threading
 import tkinter as tk
 from tkinter import messagebox, filedialog
 
-from .theme import *
+from .theme import (
+    BG_MAIN, BG_CARD, BG_CARD2, BG_GLASS, ACCENT, ACCENT2, BLUE, BLUE2, RED, YELLOW,
+    PURPLE, TEXT_PRI, TEXT_SEC, TEXT_MUT, BORDER2, ON_ACCENT, bind_tree, hover, BasePage
+)
 from models.detection import (
     API_URL,
     api_detect,
@@ -13,6 +16,7 @@ from models.detection import (
 
 STATUS_META   = {k: (v[0], v[1]) for k, v in CNN_CLASS_META.items()}
 URGENCY_COLOR = {"Low": ACCENT, "Medium": YELLOW, "High": RED, "Critical": "#ff2244"}
+
 
 class DetectionPage(BasePage):
     def _build(self):
@@ -30,7 +34,7 @@ class DetectionPage(BasePage):
 
         load_btn = tk.Frame(hdr_row, bg=BLUE, cursor="hand2", padx=16, pady=8)
         load_btn.pack(side="right")
-        tk.Label(load_btn, text="📷  Upload Image", font=self.f_label, bg=BLUE, fg=BG_MAIN).pack()
+        tk.Label(load_btn, text="📷  Upload Image", font=self.f_label, bg=BLUE, fg=ON_ACCENT).pack()
         bind_tree(load_btn, "<Button-1>", lambda e: self._load_image())
         hover(load_btn, BLUE, BLUE2)
 
@@ -74,7 +78,7 @@ class DetectionPage(BasePage):
         self._analyse_btn_frame = tk.Frame(left, bg=ACCENT, cursor="hand2")
         self._analyse_btn_frame.pack(fill="x", padx=12, pady=(0,12))
         tk.Label(self._analyse_btn_frame, text="Analyse with CNN",
-                 font=self.f_label, bg=ACCENT, fg=BG_MAIN, pady=9).pack()
+                 font=self.f_label, bg=ACCENT, fg=ON_ACCENT, pady=9).pack()
         bind_tree(self._analyse_btn_frame, "<Button-1>", lambda e: self._run_analysis())
         hover(self._analyse_btn_frame, ACCENT, ACCENT2)
 
@@ -212,7 +216,7 @@ class DetectionPage(BasePage):
         tk.Label(top_row, text=f"{badge_emoji}  {status}", font=("Segoe UI",14,"bold"),
                  bg=BG_CARD, fg=color).pack(side="left")
         tk.Label(top_row, text=f"  {urgency} urgency  ",
-                 font=self.f_small, bg=urg_color, fg=BG_MAIN, padx=6, pady=2).pack(side="right")
+                 font=self.f_small, bg=urg_color, fg=ON_ACCENT, padx=6, pady=2).pack(side="right")
         tk.Label(banner, text=f"CNN Confidence: {conf}%", font=self.f_small,
                  bg=BG_CARD, fg=TEXT_SEC).pack(anchor="w", pady=(8,4))
         bar_bg = tk.Frame(banner, bg=BG_GLASS, height=8)
@@ -226,7 +230,7 @@ class DetectionPage(BasePage):
         method_row = tk.Frame(banner, bg=BG_CARD)
         method_row.pack(anchor="w", pady=(6,0))
         tk.Label(method_row, text="  EfficientNetB0  ", font=("Segoe UI",7),
-                 bg=PURPLE, fg=BG_MAIN, padx=4, pady=2).pack(side="left")
+                 bg=PURPLE, fg=ON_ACCENT, padx=4, pady=2).pack(side="left")
         tk.Label(method_row, text="  Transfer Learning + Colour Ensemble",
                  font=("Segoe UI",7), bg=BG_CARD, fg=TEXT_MUT).pack(side="left", padx=(6,0))
 
@@ -253,7 +257,7 @@ class DetectionPage(BasePage):
                 row = tk.Frame(pad, bg=BG_CARD, padx=12, pady=8)
                 row.pack(fill="x", pady=(0,4))
                 num = tk.Label(row, text=f" {i} ", font=("Segoe UI",8,"bold"),
-                               bg=ACCENT, fg=BG_MAIN, padx=4, pady=1)
+                               bg=ACCENT, fg=ON_ACCENT, padx=4, pady=1)
                 num.pack(side="left", padx=(0,10))
                 tk.Label(row, text=rec, font=self.f_body, bg=BG_CARD, fg=TEXT_PRI,
                          wraplength=360, justify="left").pack(side="left", fill="x")

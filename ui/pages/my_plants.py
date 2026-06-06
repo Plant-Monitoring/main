@@ -4,7 +4,10 @@ import random
 import tkinter as tk
 from tkinter import simpledialog, messagebox, filedialog
 
-from .theme import *
+from .theme import (
+    BG_MAIN, BG_CARD, BG_CARD2, BG_GLASS, ACCENT, ACCENT2, BLUE, RED, YELLOW, TEXT_PRI,
+    TEXT_SEC, TEXT_MUT, BORDER, ON_ACCENT, APP_DIR, bind_tree, hover, BasePage
+)
 
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tiff"}
 SAMPLE_PLANTS = [
@@ -14,6 +17,7 @@ STATUS_COLOR = {"Optimal": ACCENT, "Low Light": RED, "Too Much Light": YELLOW}
 CALIBRACHOA_FOLDER = "/home/anastasija/Desktop/FERI/2 semester/pp/projekt/main/Calibrachoa"
 
 PLANTS_DB_PATH = os.path.join(APP_DIR, "plants_data.json")
+
 
 def _load_plants_db():
     if os.path.exists(PLANTS_DB_PATH):
@@ -41,6 +45,7 @@ def _init_calibrachoa_images(db):
         _save_plants_db(db)
     return db
 
+
 class MyPlantsPage(BasePage):
     THUMB_W = 88
     THUMB_H = 72
@@ -63,7 +68,7 @@ class MyPlantsPage(BasePage):
 
         add_btn = tk.Frame(hdr_row, bg=ACCENT, cursor="hand2", padx=14, pady=6)
         add_btn.pack(side="right")
-        tk.Label(add_btn, text="+ Add Plant", font=self.f_label, bg=ACCENT, fg=BG_MAIN).pack()
+        tk.Label(add_btn, text="+ Add Plant", font=self.f_label, bg=ACCENT, fg=ON_ACCENT).pack()
         bind_tree(add_btn, "<Button-1>", lambda e: self._add_plant())
         hover(add_btn, ACCENT, ACCENT2)
 

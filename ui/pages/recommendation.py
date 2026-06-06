@@ -1,8 +1,12 @@
 import tkinter as tk
 
-from .theme import *
+from .theme import (
+    BG_MAIN, BG_CARD, BG_CARD2, BG_GLASS, ACCENT, ACCENT2, BLUE, RED, YELLOW, TEXT_PRI,
+    TEXT_SEC, TEXT_MUT, BORDER, ON_ACCENT, bind_tree, hover, GreenSlider, BasePage
+)
 from database.plants import df_plants as _df_plants, PANDAS_OK
 from models.recommendation import recommend_plants
+
 
 class RecommendationSystemPage(BasePage):
     def _build(self):
@@ -72,7 +76,7 @@ class RecommendationSystemPage(BasePage):
             btn.pack(side="left", padx=(0,6))
             lbl = tk.Label(btn, text=label, font=self.f_small,
                            bg=ACCENT if is_active else BG_GLASS,
-                           fg=BG_MAIN if is_active else TEXT_SEC)
+                           fg=ON_ACCENT if is_active else TEXT_SEC)
             lbl.pack()
             self._space_btns[val] = (btn, lbl)
             def on_space(e, v=val):
@@ -81,7 +85,7 @@ class RecommendationSystemPage(BasePage):
                     active = (k==v)
                     b.configure(bg=ACCENT if active else BG_GLASS)
                     l.configure(bg=ACCENT if active else BG_GLASS,
-                                fg=BG_MAIN if active else TEXT_SEC)
+                                fg=ON_ACCENT if active else TEXT_SEC)
             bind_tree(btn, "<Button-1>", on_space)
 
         # Toggles
@@ -122,7 +126,7 @@ class RecommendationSystemPage(BasePage):
         find_btn = tk.Frame(left_inner, bg=ACCENT, cursor="hand2")
         find_btn.pack(fill="x", pady=(14,0))
         tk.Label(find_btn, text="Find Plants", font=("Segoe UI",10,"bold"),
-                 bg=ACCENT, fg=BG_MAIN, pady=10).pack()
+                 bg=ACCENT, fg=ON_ACCENT, pady=10).pack()
         bind_tree(find_btn, "<Button-1>", lambda e: self._run_search())
         hover(find_btn, ACCENT, ACCENT2)
 
@@ -212,7 +216,7 @@ class RecommendationSystemPage(BasePage):
 
             rank_row = tk.Frame(left_info, bg=BG_CARD); rank_row.pack(anchor="w")
             tk.Label(rank_row, text=f" {rank} ", font=("Segoe UI",9,"bold"),
-                     bg=mc, fg=BG_MAIN, padx=4, pady=1).pack(side="left", padx=(0,6))
+                     bg=mc, fg=ON_ACCENT, padx=4, pady=1).pack(side="left", padx=(0,6))
             tk.Label(rank_row, text=emoji, font=("Segoe UI",13), bg=BG_CARD).pack(side="left", padx=(0,4))
             tk.Label(rank_row, text=name, font=self.f_title, bg=BG_CARD, fg=TEXT_PRI).pack(side="left")
 

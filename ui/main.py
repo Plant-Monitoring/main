@@ -13,11 +13,12 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 
 # Shared theme (colours + helpers)
+from pages import theme
 from pages.theme import (
     BG_MAIN, BG_SIDE, BG_CARD, BG_CARD2, BG_GLASS,
     ACCENT, ACCENT2, BLUE, BLUE2, RED, YELLOW, PURPLE, TEAL, ORANGE,
     TEXT_PRI, TEXT_SEC, TEXT_MUT, BORDER, BORDER2, GLOW,
-    bind_tree, hover,
+    bind_tree, hover, emoji_font,
 )
 
 # Pages
@@ -105,12 +106,12 @@ class PlantMonitor(tk.Tk):
         logo_row.pack(fill="x", padx=10, pady=(16,10))
         logo_inner = tk.Frame(logo_row, bg=BG_GLASS, padx=10, pady=8)
         logo_inner.pack(side="left", fill="x", expand=True)
-        tk.Label(logo_inner, text="🌿", font=("Segoe UI",14), bg=BG_GLASS, fg=ACCENT).pack(side="left")
+        tk.Label(logo_inner, text="🌿", font=emoji_font(14), bg=BG_GLASS, fg=ACCENT).pack(side="left")
         tk.Label(logo_inner, text=" Plant Monitor", font=("Segoe UI",11,"bold"),
                  bg=BG_GLASS, fg=TEXT_PRI).pack(side="left")
         fs_btn = tk.Frame(logo_row, bg=BG_CARD2, cursor="hand2", padx=6, pady=6)
         fs_btn.pack(side="right", padx=(6,0))
-        self._fs_btn_lbl = tk.Label(fs_btn, text="⛶", font=("Segoe UI",11),
+        self._fs_btn_lbl = tk.Label(fs_btn, text="⛶", font=emoji_font(11),
                                      bg=BG_CARD2, fg=TEXT_SEC, cursor="hand2")
         self._fs_btn_lbl.pack()
         bind_tree(fs_btn, "<Button-1>", lambda e: self._toggle_fullscreen())
@@ -133,12 +134,26 @@ class PlantMonitor(tk.Tk):
         # Divider
         tk.Frame(parent, bg=BORDER, height=1).pack(fill="x", padx=12, pady=4)
 
+        # -- Theme toggle (light / dark) --
+        theme_btn = tk.Frame(parent, bg=BG_SIDE, cursor="hand2")
+        theme_btn.pack(fill="x", padx=8, pady=(0,2))
+        theme_inner = tk.Frame(theme_btn, bg=BG_SIDE)
+        theme_inner.pack(pady=6, padx=12, anchor="w")
+        if theme.CURRENT_MODE == "dark":
+            t_icon, t_text = "☀", "Light Mode"
+        else:
+            t_icon, t_text = "🌙", "Dark Mode"
+        tk.Label(theme_inner, text=t_icon, font=emoji_font(10), bg=BG_SIDE, fg=ACCENT).pack(side="left", padx=(0,8))
+        tk.Label(theme_inner, text=t_text, font=self.f_body, bg=BG_SIDE, fg=TEXT_PRI).pack(side="left")
+        bind_tree(theme_btn, "<Button-1>", lambda e: self._toggle_theme())
+        hover(theme_btn, BG_SIDE, BG_CARD2)
+
         # Sign out
         logout_btn = tk.Frame(parent, bg=BG_SIDE, cursor="hand2")
         logout_btn.pack(fill="x", padx=8, pady=(0,2))
         logout_inner = tk.Frame(logout_btn, bg=BG_SIDE)
         logout_inner.pack(pady=6, padx=12, anchor="w")
-        tk.Label(logout_inner, text="⏻", font=("Segoe UI",10), bg=BG_SIDE, fg=RED).pack(side="left", padx=(0,8))
+        tk.Label(logout_inner, text="⏻", font=emoji_font(10), bg=BG_SIDE, fg=RED).pack(side="left", padx=(0,8))
         tk.Label(logout_inner, text="Sign Out", font=self.f_body, bg=BG_SIDE, fg=RED).pack(side="left")
         bind_tree(logout_btn, "<Button-1>", lambda e: self._do_logout())
         hover(logout_btn, BG_SIDE, "#1e1a1a")
@@ -169,7 +184,7 @@ class PlantMonitor(tk.Tk):
         bar = tk.Frame(row, bg=ACCENT if is_active else bg_c, width=3)
         bar.pack(side="left", fill="y")
 
-        icon_lbl = tk.Label(row, text=icon, font=("Segoe UI",12),
+        icon_lbl = tk.Label(row, text=icon, font=emoji_font(12),
                             bg=bg_c, fg=fg_c, anchor="w", pady=9, padx=8)
         icon_lbl.pack(side="left")
         lbl = tk.Label(row, text=label, font=self.f_body,
@@ -217,7 +232,7 @@ class PlantMonitor(tk.Tk):
                  bg=BG_GLASS, fg=TEXT_PRI).pack(anchor="w")
         tk.Label(banner_inner, text="AI-powered care tracking", font=("Segoe UI",7),
                  bg=BG_GLASS, fg=ACCENT).pack(anchor="w")
-        tk.Label(banner_inner, text="🌿", font=("Segoe UI",28), bg=BG_GLASS).pack(anchor="e")
+        tk.Label(banner_inner, text="🌿", font=emoji_font(28), bg=BG_GLASS).pack(anchor="e")
 
         # Quick links
         tk.Label(pad, text="QUICK ACTIONS", font=("Segoe UI",7,"bold"),
@@ -234,7 +249,7 @@ class PlantMonitor(tk.Tk):
             tk.Frame(btn, bg=color, width=3).pack(side="left", fill="y")
             inner = tk.Frame(btn, bg=BG_GLASS, padx=10, pady=7)
             inner.pack(side="left", fill="x", expand=True)
-            tk.Label(inner, text=icon_text, font=("Segoe UI",11), bg=BG_GLASS).pack(side="left", padx=(0,6))
+            tk.Label(inner, text=icon_text, font=emoji_font(11), bg=BG_GLASS).pack(side="left", padx=(0,6))
             tk.Label(inner, text=label, font=self.f_small, bg=BG_GLASS, fg=TEXT_PRI).pack(side="left")
             tk.Label(inner, text="→", font=("Segoe UI",10), bg=BG_GLASS, fg=color).pack(side="right")
             bind_tree(btn, "<Button-1>", lambda e, p=page: self._show_page(p))
@@ -249,7 +264,7 @@ class PlantMonitor(tk.Tk):
         status_card.pack(fill="x")
         for dot_color, label in [(ACCENT,"CNN Engine Ready"),(BLUE,"Data Layer Active"),(ORANGE,"Growth API Offline")]:
             row = tk.Frame(status_card, bg=BG_GLASS); row.pack(fill="x", pady=2)
-            tk.Label(row, text="⬤", font=("Segoe UI",8), bg=BG_GLASS, fg=dot_color).pack(side="left")
+            tk.Label(row, text="⬤", font=emoji_font(8), bg=BG_GLASS, fg=dot_color).pack(side="left")
             tk.Label(row, text=f"  {label}", font=("Segoe UI",7), bg=BG_GLASS, fg=TEXT_SEC).pack(side="left")
 
     def _register_pages(self):
@@ -259,6 +274,7 @@ class PlantMonitor(tk.Tk):
             self._pages[name] = page
 
     def _show_page(self, name):
+        self._current_page_name = name
         if self._current_page: self._current_page.lower()
         page = self._pages.get(name)
         if page:
@@ -274,6 +290,24 @@ class PlantMonitor(tk.Tk):
             entry["icon"].configure(bg=BG_CARD if match else BG_SIDE,
                                     fg=TEXT_PRI if match else TEXT_SEC)
 
+    def _toggle_theme(self):
+        new_mode = "light" if theme.CURRENT_MODE == "dark" else "dark"
+        theme.apply_mode(new_mode)
+        self._rebuild_theme()
+
+    def _rebuild_theme(self):
+        current = getattr(self, "_current_page_name", "Dashboard")
+        plt.close("all")
+        for w in self.winfo_children():
+            w.destroy()
+        self.configure(bg=theme.BG_MAIN)
+        self._nav_buttons = []
+        self._pages = {}
+        self._current_page = None
+        self._build_shell()
+        self._register_pages()
+        self._show_page(current)
+
     def _do_logout(self):
         if messagebox.askyesno("Sign Out", "Are you sure you want to sign out?"):
             plt.close("all")
@@ -284,7 +318,7 @@ class PlantMonitor(tk.Tk):
                 app = PlantMonitor(auth.logged_in_user)
                 app.mainloop()
 
-# Entry point 
+# Entry point
 if __name__ == "__main__":
     auth = AuthWindow()
     auth.mainloop()
