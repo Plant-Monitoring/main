@@ -22,15 +22,21 @@ def api_detect(image_path: str) -> dict | None:
         pass
     return None
 
-# CNN classes
+# CNN classes (full set kept for the colour-ensemble fallback)
 CNN_CLASSES = [
     "Healthy","Nutrient Deficiency","Disease Detected",
     "Overwatered","Needs Water","Pest Infestation","Root Rot","Dead",
 ]
+
+# The trained .keras model is binary: index 0 = Healthy, 1 = Unhealthy.
+# (Trained on whole-plant houseplant images: healthy vs wilted/unhealthy.)
+CNN_BINARY_CLASSES = ["Healthy", "Unhealthy"]
+
 # (colour, emoji, urgency, summary) — colours stored as hex so this module
 # carries no dependency on the UI palette.
 CNN_CLASS_META = {
     "Healthy":             ("#00e5a0", "✅", "Low",      "The plant shows strong, vibrant green foliage with no visible signs of stress."),
+    "Unhealthy":           ("#fbbf24", "⚠", "Medium",   "The plant shows signs of stress — wilting, drooping, or discolouration."),
     "Needs Water":         ("#38bdf8", "💧", "Medium",   "Pale appearance indicates dehydration or too much direct sunlight."),
     "Overwatered":         ("#a78bfa", "🌊", "High",     "Dark, waterlogged tissue — consistent with overwatering."),
     "Disease Detected":    ("#f43f5e", "🦠", "High",     "Extensive browning indicates leaf blight or fungal infection."),
@@ -41,6 +47,7 @@ CNN_CLASS_META = {
 }
 CNN_SYMPTOMS = {
     "Healthy":             ["Predominantly green, healthy-looking foliage","No significant yellowing or browning","Good colour saturation indicates active chlorophyll"],
+    "Unhealthy":           ["Wilting or drooping foliage","Discolouration or loss of firmness","Reduced healthy green tissue"],
     "Needs Water":         ["Washed-out, pale colouration across leaf surface","Low colour saturation","Possible wilting or curling"],
     "Overwatered":         ["Dark/blackened tissue detected","Possible soft stem","Brown edges consistent with root rot damage"],
     "Disease Detected":    ["Brown/necrotic tissue across leaf surface","Possible lesions or tip burn","Reduced healthy green tissue"],
@@ -51,6 +58,7 @@ CNN_SYMPTOMS = {
 }
 CNN_RECS = {
     "Healthy":             ["Continue your current watering and light schedule.","Rotate the plant every 2 weeks for even light exposure.","Wipe leaves monthly to maximise light absorption.","Monitor for any emerging spots or colour changes."],
+    "Unhealthy":           ["Check soil moisture and water if the top 2–3 cm are dry.","Move the plant to appropriate light for its species.","Inspect for pests or disease on leaves and stems.","Remove damaged or dead leaves and monitor for recovery."],
     "Needs Water":         ["Water thoroughly until it drains from the bottom.","If in direct sun, move to bright indirect light.","Check the top 2–3 cm of soil — water when dry.","Consider raising humidity with a pebble tray or misting."],
     "Overwatered":         ["Stop watering immediately and let the soil dry out completely.","Remove the plant from the pot and inspect roots.","Repot in fresh, well-draining mix.","Ensure the new pot has adequate drainage holes."],
     "Disease Detected":    ["Isolate the plant immediately to prevent spread.","Remove all visibly brown leaves with sterilised scissors.","Apply a copper-based fungicide or neem oil.","Reduce overhead watering — water at the base only."],
@@ -101,9 +109,12 @@ def _load_or_build_model(model_path: str = CNN_MODEL_PATH):
     if os.path.exists(model_path):
         try:
             model = tf.keras.models.load_model(model_path)
+            print(f"[CNN] Loaded trained model from {model_path}")
             return model, True
-        except Exception:
-            pass
+        except Exception as ex:
+            print(f"[CNN] Failed to load {model_path}: {ex}")
+    else:
+        print(f"[CNN] Model file not found at {model_path}")
     model = _build_cnn_model()
     return model, False
 
@@ -195,27 +206,50 @@ def _cnn_predict_image(image_path, model, is_pretrained, decode_fn):
     from tensorflow.keras.preprocessing import image as keras_image
     img = keras_image.load_img(image_path, target_size=(224,224))
     arr = np.expand_dims(keras_image.img_to_array(img), axis=0)
+    n_out = len(CNN_CLASSES)
+    estimated = False
     if is_pretrained:
         preds     = model.predict(arr, verbose=0)
+        n_out     = int(preds.shape[-1])
         class_idx = int(np.argmax(preds[0]))
         confidence= int(round(float(preds[0][class_idx])*100))
-        status    = CNN_CLASSES[class_idx]
         if confidence > 95: confidence = 93
         elif confidence < 50: confidence = max(50, confidence+5)
+        # Trained model is binary (2 outputs); a freshly built model has len(CNN_CLASSES).
+        if n_out == len(CNN_BINARY_CLASSES):
+            if class_idx == 0:
+                status = "Healthy"
+            else:
+                # Trained model says Unhealthy. The healthy/unhealthy call is the
+                # reliable, trained part; here we ESTIMATE the likely cause from a
+                # colour heuristic (not a trained prediction).
+                cause, _ = _pixel_colour_diagnosis(image_path)
+                status = "Unhealthy" if cause == "Healthy" else cause
+                estimated = True
+        else:
+            status = CNN_CLASSES[class_idx]
     else:
         from tensorflow.keras.applications.efficientnet import decode_predictions as eff_decode
         status, confidence = _ensemble_predict(image_path, eff_decode)
     color, badge_emoji, urgency, summary = CNN_CLASS_META.get(status,("#8b95a8","?","Low","Unknown."))
+    if estimated and status != "Unhealthy":
+        summary = "Estimated cause (colour analysis): " + summary
+    model_name = "EfficientNetB0 (fine-tuned)"
+    if is_pretrained and estimated:
+        model_name = "EfficientNetB0 (fine-tuned) + colour-heuristic cause estimate"
+    elif not is_pretrained:
+        model_name = "EfficientNetB0 + Colour Ensemble (zero-shot)"
     return {
         "status": status, "confidence": confidence, "urgency": urgency,
         "summary": summary, "symptoms": CNN_SYMPTOMS.get(status,[]),
         "recommendations": CNN_RECS.get(status,[]),
         "_cnn_info": {
-            "model":        "EfficientNetB0 (fine-tuned)" if is_pretrained else "EfficientNetB0 + Colour Ensemble (zero-shot)",
-            "input_size":   "224x224",
-            "classes":      len(CNN_CLASSES),
-            "is_pretrained":is_pretrained,
-            "accuracy_est": "~91-93%" if is_pretrained else "~88-91%",
+            "model":          model_name,
+            "input_size":     "224x224",
+            "classes":        n_out,
+            "is_pretrained":  is_pretrained,
+            "estimated_cause":estimated,
+            "accuracy_est":   "~90%" if is_pretrained else "~88-91%",
         },
     }
 

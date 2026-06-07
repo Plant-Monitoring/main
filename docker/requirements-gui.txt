@@ -3,3 +3,4 @@ numpy
 pillow
 scipy
 requests
+tensorflow>=2.12.0

@@ -155,22 +155,25 @@ class PlantRecommendation(BaseModel):
     score:            float
 
 # Plant health detection
+# Full class set kept for the colour-ensemble fallback.
 CNN_CLASSES = [
     "Healthy", "Nutrient Deficiency", "Disease Detected", "Overwatered",
     "Needs Water", "Pest Infestation", "Root Rot", "Dead",
 ]
 CNN_META = {
-    "Healthy":             ("Low",      "#00e5a0", "OK",  "Strong green foliage, no stress signs."),
-    "Needs Water":         ("Medium",   "#4fc3f7", "H2O", "Pale appearance indicates dehydration."),
-    "Overwatered":         ("High",     "#b48eff", "WET", "Dark, waterlogged tissue detected."),
-    "Disease Detected":    ("High",     "#ff5c6a", "BIO", "Browning indicates leaf blight or fungal infection."),
-    "Pest Infestation":    ("Medium",   "#ffd166", "BUG", "Yellow spots with brown specks — pest damage."),
-    "Nutrient Deficiency": ("Medium",   "#ffd166", "NUT", "Yellowing indicates nutrient deficiency."),
-    "Root Rot":            ("High",     "#ff5c6a", "ROT", "Dark tissue at base — root rot."),
-    "Dead":                ("Critical", "#888888", "RIP", "Very little living tissue detected."),
+    "Healthy":             ("Low",      "#00e5a0", "OK",   "Strong green foliage, no stress signs."),
+    "Unhealthy":           ("Medium",   "#ffd166", "WARN", "Signs of stress — wilting or discolouration."),
+    "Needs Water":         ("Medium",   "#4fc3f7", "H2O",  "Pale appearance indicates dehydration."),
+    "Overwatered":         ("High",     "#b48eff", "WET",  "Dark, waterlogged tissue detected."),
+    "Disease Detected":    ("High",     "#ff5c6a", "BIO",  "Browning indicates leaf blight or fungal infection."),
+    "Pest Infestation":    ("Medium",   "#ffd166", "BUG",  "Yellow spots with brown specks — pest damage."),
+    "Nutrient Deficiency": ("Medium",   "#ffd166", "NUT",  "Yellowing indicates nutrient deficiency."),
+    "Root Rot":            ("High",     "#ff5c6a", "ROT",  "Dark tissue at base — root rot."),
+    "Dead":                ("Critical", "#888888", "RIP",  "Very little living tissue detected."),
 }
 CNN_SYMPTOMS = {
     "Healthy":             ["Green healthy foliage", "No yellowing or browning", "Good colour saturation"],
+    "Unhealthy":           ["Wilting or drooping foliage", "Discolouration or loss of firmness", "Reduced green tissue"],
     "Needs Water":         ["Pale, washed-out leaf surface", "Low colour saturation", "Possible wilting"],
     "Overwatered":         ["Dark/blackened tissue", "Possible soft stem", "Brown edges"],
     "Disease Detected":    ["Brown/necrotic tissue", "Possible lesions or tip burn", "Reduced green tissue"],
@@ -181,6 +184,7 @@ CNN_SYMPTOMS = {
 }
 CNN_RECS = {
     "Healthy":             ["Continue current care.", "Rotate every 2 weeks.", "Wipe leaves monthly."],
+    "Unhealthy":           ["Check soil moisture and water if dry.", "Move to appropriate light.", "Inspect for pests or disease.", "Remove damaged leaves."],
     "Needs Water":         ["Water thoroughly until drainage.", "Move to bright indirect light.", "Check soil moisture daily."],
     "Overwatered":         ["Stop watering immediately.", "Inspect and trim rotted roots.", "Repot in well-draining mix."],
     "Disease Detected":    ["Isolate the plant.", "Remove brown leaves with sterilised scissors.", "Apply fungicide/neem oil."],
@@ -190,7 +194,9 @@ CNN_RECS = {
     "Dead":                ["Check for any surviving green stems.", "Cut away dead material.", "Propagate any healthy cuttings."],
 }
 
-CNN_MODEL_PATH = Path("plant_health_cnn.keras")
+CNN_MODEL_PATH = Path(__file__).resolve().parent.parent / "plant_health_cnn.keras"
+# The trained .keras model is binary: index 0 = Healthy, 1 = Unhealthy.
+CNN_BINARY_CLASSES = ["Healthy", "Unhealthy"]
 _model_cache   = None
 _model_lock    = threading.Lock()
 
@@ -207,9 +213,12 @@ def _get_model():
         if CNN_MODEL_PATH.exists():
             try:
                 _model_cache = (tf.keras.models.load_model(str(CNN_MODEL_PATH)), True)
+                print(f"[CNN] Loaded trained model from {CNN_MODEL_PATH}")
                 return _model_cache
-            except Exception:
-                pass
+            except Exception as ex:
+                print(f"[CNN] Failed to load {CNN_MODEL_PATH}: {ex}")
+        else:
+            print(f"[CNN] Model file not found at {CNN_MODEL_PATH}")
         base = EfficientNetB0(input_shape=(224, 224, 3), include_top=False, weights="imagenet")
         base.trainable = False
         inputs = tf.keras.Input(shape=(224, 224, 3))
@@ -257,9 +266,23 @@ def _infer(pil_img):
     from tensorflow.keras.applications.efficientnet import decode_predictions, preprocess_input
     img_resized = pil_img.convert("RGB").resize((224,224))
     arr = np.expand_dims(img_to_array(img_resized), 0)
+    n_out = len(CNN_CLASSES)
+    estimated = False
     if finetuned:
         p = model.predict(arr, verbose=0); idx = int(np.argmax(p[0]))
-        cls = CNN_CLASSES[idx]; conf = max(50, min(93, int(p[0][idx]*100))); acc = "~91-93%"
+        n_out  = int(p.shape[-1])
+        conf = max(50, min(93, int(p[0][idx]*100))); acc = "~90%"
+        if n_out == len(CNN_BINARY_CLASSES):
+            if idx == 0:
+                cls = "Healthy"
+            else:
+                # Trained model says Unhealthy. That call is the reliable, trained
+                # part; here we ESTIMATE the likely cause from a colour heuristic.
+                cause, _ = _colour_diagnosis(pil_img)
+                cls = "Unhealthy" if cause == "Healthy" else cause
+                estimated = True
+        else:
+            cls = CNN_CLASSES[idx]
     else:
         c_cls, c_sc = _colour_diagnosis(pil_img)
         try:
@@ -283,13 +306,21 @@ def _infer(pil_img):
         cls = max(v,key=v.get); norm = v[cls]/(W_C+W_N)
         conf = max(88,min(93,int(88+(norm-0.50)*10))); acc = "~88-91%"
     urgency,color,badge,summary = CNN_META.get(cls,("Low","#888","?","Unknown."))
+    if estimated and cls != "Unhealthy":
+        summary = "Estimated cause (colour analysis): " + summary
+    model_name = "EfficientNetB0 (fine-tuned)"
+    if finetuned and estimated:
+        model_name = "EfficientNetB0 (fine-tuned) + colour-heuristic cause estimate"
+    elif not finetuned:
+        model_name = "EfficientNetB0 + Colour Ensemble"
     return {
         "status": cls, "confidence": conf, "urgency": urgency, "color": color,
         "badge": badge, "summary": summary,
         "symptoms": CNN_SYMPTOMS.get(cls,[]), "recommendations": CNN_RECS.get(cls,[]),
-        "_cnn_info": {"model": "EfficientNetB0 (fine-tuned)" if finetuned else "EfficientNetB0 + Colour Ensemble",
-                      "input_size": "224x224", "classes": len(CNN_CLASSES),
-                      "is_pretrained": finetuned, "accuracy_est": acc},
+        "_cnn_info": {"model": model_name,
+                      "input_size": "224x224", "classes": n_out,
+                      "is_pretrained": finetuned, "estimated_cause": estimated,
+                      "accuracy_est": acc},
     }
 
 # Growth / colour model classes  (inline — no external file needed)
@@ -353,8 +384,8 @@ class DataVector(BaseModel):
 _growth_model = None
 _color_model  = None
 
-GROWTH_MODEL_PATH = Path("growth_predictor.pt")
-COLOR_MODEL_PATH  = Path("color_predictor.pt")
+GROWTH_MODEL_PATH = Path(__file__).resolve().parent.parent / "growth_predictor.pt"
+COLOR_MODEL_PATH  = Path(__file__).resolve().parent.parent / "color_predictor.pt"
 
 def _load_torch_models():
     global _growth_model, _color_model
@@ -411,7 +442,7 @@ def health():
     return {
         "success": True, "status": "ok", "version": "2.0.0",
         "models": {
-            "detection": "loaded",
+            "detection": "trained" if CNN_MODEL_PATH.exists() else "fallback",
             "growth":    "loaded" if _growth_model else "unavailable",
             "colour":    "loaded" if _color_model  else "unavailable",
         },
