@@ -8,3 +8,4 @@ __pycache__/
 .env
 *.json
 !plants_data.json
+__pycache__/
