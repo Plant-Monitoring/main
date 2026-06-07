@@ -1,0 +1,12 @@
+# Keep the image small and the GUI out of the API image
+venv/
+**/venv/
+**/__pycache__/
+*.pyc
+ui/
+docs/
+.git/
+.github/
+*.md
+*.json
+Calibrachoa/

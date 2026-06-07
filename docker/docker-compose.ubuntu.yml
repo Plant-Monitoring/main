@@ -1,0 +1,34 @@
+# Full stack for Ubuntu / Linux only (API + GUI in containers).
+# This file lives in docker/, so the build context ".." points to the repo root.
+# Run from the repository root:
+#   xhost +local:docker
+#   docker compose -f docker/docker-compose.ubuntu.yml up --build
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../models:/app/models:ro
+    restart: unless-stopped
+
+  gui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gui
+    # Host networking so the GUI reaches the API on localhost:8000 and X11 is simple
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix      # share the host display
+      - ../ui:/app/ui                      # persist JSON data, reflect code
+      - ../models:/app/models:ro
+      - ../database:/app/database:ro
+    # STM32 sensor over USB (uncomment + set the right device):
+    # devices:
+    #   - "/dev/ttyUSB0:/dev/ttyUSB0"
+    depends_on:
+      - api
