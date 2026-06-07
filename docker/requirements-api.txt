@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+numpy
+pillow
+scipy
+requests
+# Growth/Color models:
+torch
+# Detection model is served by the API only if DEV-48 lives here.
+# TensorFlow is large; include ONLY if this API serves CNN detection:
+# tensorflow

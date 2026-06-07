@@ -1,0 +1,26 @@
+# ---- API / backend image (FastAPI + models) ----
+# Targeted at Linux for this project. Uses the API's own requirements.txt so all
+# real dependencies are covered.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Build tools for packages that may need to compile wheels
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install the API's real dependencies (maintained by the team in API/requirements.txt)
+COPY API/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+# Make sure the web server is present even if it's not pinned in requirements.txt
+RUN pip install --no-cache-dir "uvicorn[standard]" fastapi
+
+# Copy the code (GUI is excluded via .dockerignore)
+COPY API/ ./API/
+COPY models/ ./models/
+
+EXPOSE 8000
+
+# FastAPI app object is `app` in API/api.py
+CMD ["uvicorn", "API.api:app", "--host", "0.0.0.0", "--port", "8000"]

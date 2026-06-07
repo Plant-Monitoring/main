@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.keras
+*.so
+*.egg-info/
+.env
+*.json
+!plants_data.json

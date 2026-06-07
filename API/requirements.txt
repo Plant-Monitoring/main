@@ -1,0 +1,10 @@
+fastapi>=0.95.0
+uvicorn[standard]
+pandas
+numpy
+Pillow
+python-multipart    # for file uploads
+tensorflow>=2.12.0  # EfficientNetB0 is included
+torch
+scikit-learn
+scipy

@@ -1,0 +1,75 @@
+from io import StringIO
+
+PLANTS_CSV_DATA = """name,pet_safe,space,water,sunlight,temperature,pollen_allergies,existing_plants
+Monstera,False,flat,7,6,22,False,"Pothos,Philodendron"
+Snake plant,False,flat,3,5,25,False,"ZZ plant,Pothos"
+Peace lily,False,flat,7,3,22,True,"Boston fern,Calathea"
+Spider plant,True,flat,5,6,20,False,"Pothos,Philodendron"
+Aloe vera,False,flat,2,9,25,False,"Cactus,Succulent"
+Fiddle leaf fig,False,flat,6,7,24,False,""
+Pothos,False,flat,5,4,23,False,"Monstera,Philodendron"
+ZZ plant,False,flat,2,3,25,False,"Snake plant"
+Boston fern,True,flat,8,4,20,False,"Peace lily,Calathea"
+English ivy,False,garden,5,6,18,False,""
+Lavender,True,garden,3,10,22,False,"Rosemary,Thyme"
+Rosemary,True,garden,4,10,22,False,"Lavender,Thyme"
+Basil,True,garden,6,8,25,False,""
+Orchid,True,flat,5,6,24,False,""
+Cactus,True,flat,1,10,30,False,"Aloe vera,Succulent"
+Succulent,True,flat,2,9,28,False,"Cactus,Aloe vera"
+Rubber plant,False,flat,6,7,24,False,""
+Dracaena,False,flat,5,6,23,False,""
+Philodendron,False,flat,6,5,22,False,"Monstera,Pothos"
+Calathea,True,flat,7,4,22,False,"Peace lily,Boston fern"
+Jade plant,False,flat,2,8,22,False,"Cactus,Succulent"
+Chinese money plant,True,flat,5,6,20,False,"Pothos,Spider plant"
+Bird of paradise,False,flat,6,9,26,False,"Monstera"
+Anthurium,False,flat,6,5,22,True,"Calathea,Peace lily"
+Peperomia,True,flat,4,5,22,False,"Pothos,Calathea"
+Prayer plant,True,flat,7,4,22,False,"Calathea,Boston fern"
+Tradescantia,True,flat,6,6,20,False,"Spider plant,Pothos"
+String of pearls,False,flat,2,9,24,False,"Succulent,Cactus"
+String of hearts,True,flat,3,7,22,False,"Succulent,Pothos"
+Hoya,True,flat,4,6,23,False,"Pothos,Philodendron"
+Parlour palm,True,flat,6,4,22,False,"Dracaena,Snake plant"
+Areca palm,True,flat,7,7,24,False,"Parlour palm,Dracaena"
+Money tree,True,flat,5,6,24,False,"Rubber plant,Jade plant"
+African violet,True,flat,5,5,20,False,"Begonia,Orchid"
+Bromeliad,True,flat,5,6,24,False,"Orchid,Anthurium"
+Air plant,True,flat,4,7,22,False,"Bromeliad,Orchid"
+Yucca,False,flat,2,9,26,False,"Cactus,Aloe vera"
+Bird's nest fern,True,flat,7,3,22,False,"Boston fern,Calathea"
+Maidenhair fern,True,flat,8,4,20,False,"Boston fern,Bird's nest fern"
+Dieffenbachia,False,flat,6,5,23,False,"Philodendron,Pothos"
+Mint,True,garden,7,7,20,False,"Basil,Rosemary"
+Thyme,True,garden,3,9,22,False,"Rosemary,Lavender"
+Sage,True,garden,3,9,22,False,"Rosemary,Thyme"
+Parsley,True,garden,6,6,18,False,"Basil,Mint"
+Chives,True,garden,5,7,18,False,"Parsley,Basil"
+Lemon balm,True,garden,5,7,20,False,"Mint,Lavender"
+Sunflower,True,garden,6,10,22,True,""
+Marigold,True,garden,4,9,22,True,""
+Geranium,True,garden,5,8,20,True,"Lavender,Marigold"
+Begonia,True,flat,6,5,20,False,"Calathea,Peperomia"
+Rose,False,garden,7,9,20,True,""
+Pansy,True,garden,6,7,15,False,""
+Primrose,True,garden,6,6,15,False,""
+Cyclamen,True,flat,6,5,15,False,"Primrose,Pansy"
+Cast iron plant,True,flat,3,3,20,False,"ZZ plant,Snake plant"
+Nerve plant,True,flat,8,3,22,False,"Calathea,Boston fern"
+Umbrella plant,False,flat,6,7,22,False,"Rubber plant,Fiddle leaf fig"
+Weeping fig,False,flat,6,7,22,False,"Rubber plant,Umbrella plant"
+Croton,False,flat,6,8,24,False,""
+Bamboo palm,True,flat,7,5,23,False,"Parlour palm,Dracaena"
+"""
+
+try:
+    import pandas as pd
+    df_plants = pd.read_csv(StringIO(PLANTS_CSV_DATA))
+    df_plants["existing_plants"] = df_plants["existing_plants"].apply(
+        lambda x: [p.strip() for p in x.split(",") if p.strip()] if isinstance(x, str) else []
+    )
+    PANDAS_OK = True
+except ImportError:
+    PANDAS_OK = False
+    df_plants = None
