@@ -17,8 +17,8 @@ COLORS = ["green", "yellow", "brown", "pale", "black"]
 class GrowthPage(BasePage):
     FIELDS = [
         ("days_passed",        "Days passed"),
-        ("avg_direct_light",   "Avg direct light (lux)"),
-        ("avg_indirect_light", "Avg indirect light (lux)"),
+        ("avg_direct_light",   "Avg direct light (hrs)"),
+        ("avg_indirect_light", "Avg indirect light (hrs)"),
         ("avg_nighttime",      "Avg nighttime (hrs)"),
         ("avg_temp",           "Avg temperature (C)"),
         ("min_temp",           "Min temperature (C)"),
@@ -91,7 +91,7 @@ class GrowthPage(BasePage):
 
         api_row = tk.Frame(left_inner, bg=BG_CARD); api_row.pack(fill="x", pady=(0,10))
         tk.Label(api_row, text="API URL", font=self.f_small, bg=BG_CARD, fg=TEXT_SEC).pack(anchor="w", pady=(0,4))
-        self._api_url_var = tk.StringVar(value="http://localhost:8000/fwd")
+        self._api_url_var = tk.StringVar(value="http://localhost:5000/growth")
         api_frame = tk.Frame(api_row, bg=BG_GLASS); api_frame.pack(fill="x")
         tk.Frame(api_frame, bg=TEAL, width=3).pack(side="left", fill="y")
         api_entry = tk.Entry(api_frame, textvariable=self._api_url_var,
@@ -145,17 +145,6 @@ class GrowthPage(BasePage):
 
     def _run_prediction(self):
         # Import the model lazily so the GUI works even before models/growth.py exists.
-        try:
-            from models.growth import predict_growth
-        except ModuleNotFoundError:
-            messagebox.showinfo(
-                "Model not available yet",
-                "The growth model (models/growth.py) hasn't been added yet.\n"
-                "The page will work as soon as it's in place.")
-            return
-        except Exception as ex:
-            messagebox.showerror("Model Error", f"Could not load the growth model:\n{ex}")
-            return
 
         data = {}
         for key, label in self.FIELDS:
@@ -167,13 +156,21 @@ class GrowthPage(BasePage):
                 messagebox.showerror("Invalid Input", f"'{label}' must be a number."); return
         color   = self._color_var.get()
         api_url = self._api_url_var.get().strip()
+        vector = [1 if c == color else 0 for c in self.COLORS]
+        payload = {**data, "color_before": vector}
         if not api_url:
             messagebox.showwarning("Missing API URL", "Please enter the growth API URL."); return
         self._show_loading()
         def _call():
             try:
-                rep = predict_growth(data, color, api_url, user_id=1, timeout=10)
-                self.after(0, lambda: self._show_result(rep))
+                import requests as req_lib
+                response = req_lib.post(api_url, json=payload, timeout=10)
+                if response.status_code == 200:
+                    rep = response.json()
+                    self.after(0, lambda: self._show_result(rep))
+                else:
+                    msg = f"Server returned status {response.status_code}.\n{response.text[:200]}"
+                    self.after(0, lambda m=msg: self._show_error(m))
             except Exception as ex:
                 self.after(0, lambda e=ex: self._show_error(str(e)))
         threading.Thread(target=_call, daemon=True).start()
@@ -202,7 +199,7 @@ class GrowthPage(BasePage):
         height_row.pack(fill="x", pady=(0,8))
         tk.Label(height_row, text="Predicted height growth", font=self.f_small, bg=BG_GLASS, fg=TEXT_SEC).pack(anchor="w")
         val_row = tk.Frame(height_row, bg=BG_GLASS); val_row.pack(anchor="w")
-        tk.Label(val_row, text=f"{guess}", font=("Segoe UI",30,"bold"), bg=BG_GLASS, fg=TEAL).pack(side="left")
+        tk.Label(val_row, text=f"{guess:.3f}", font=("Segoe UI",30,"bold"), bg=BG_GLASS, fg=TEAL).pack(side="left")
         tk.Label(val_row, text=" cm", font=("Segoe UI",12), bg=BG_GLASS, fg=TEXT_SEC).pack(side="left", pady=(10,0))
 
         color_row = tk.Frame(inner, bg=BG_GLASS, padx=16, pady=14)
