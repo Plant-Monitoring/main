@@ -1,0 +1,20 @@
+# ---- GUI image (Tkinter) — LINUX ONLY, via X11 ----
+# Not a cross-platform solution. On Windows/Mac you need an X server (VcXsrv /
+# XQuartz) and the experience is fragile. Prefer running the GUI natively.
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3-tk tk libx11-6 \
+        fonts-symbola fonts-noto-color-emoji \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY docker/requirements-gui.txt .
+RUN pip install --no-cache-dir -r requirements-gui.txt
+
+COPY ui/ ./ui/
+COPY models/ ./models/
+COPY database/ ./database/
+
+WORKDIR /app/ui
+CMD ["python", "main.py"]
