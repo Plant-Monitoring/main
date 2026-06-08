@@ -350,8 +350,9 @@ class DataVector(BaseModel):
 growth_model = GrowthPredictor()
 color_model = ColorPredictor()
 
-color_checkpoint = torch.load("API/weights/health_model.pth", weights_only=True)
-growth_checpoint = torch.load("API/weights/regression_model.pth", weights_only=True)
+_API_DIR = Path(__file__).resolve().parent
+color_checkpoint = torch.load(_API_DIR / "weights/health_model.pth", weights_only=True)
+growth_checpoint = torch.load(_API_DIR / "weights/regression_model.pth", weights_only=True)
 color_model.load_state_dict(color_checkpoint['model_state'])
 growth_model.out.load_state_dict(growth_checpoint)
 
