@@ -1,0 +1,89 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:        # used to trigger the OPTIONAL publish/deploy jobs by hand
+
+env:
+  API_IMAGE: plant-monitor-api
+  GUI_IMAGE: plant-monitor-gui
+
+jobs:
+  # LINT  — runs on every push and pull request
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install lint tools
+        run: pip install flake8 black
+
+      - name: Lint with flake8 (syntax errors only)
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics \
+            --exclude=.git,__pycache__,.venv,venv,build,dist
+
+      # Reports formatting issues but does NOT fail the build.
+      # Remove "continue-on-error" once your code is fully black-formatted.
+      - name: Check formatting with black (informational)
+        run: black --check --diff .
+        continue-on-error: true
+
+  # BUILD IMAGES — proves both Docker images build, No push
+  build-images:
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api, gui]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.service }} image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.${{ matrix.service }}
+          push: false
+          tags: ${{ matrix.service }}:ci
+
+
+  # publish images to Docker Hub.
+  publish:
+    needs: build-images
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api, gui]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service == 'api' && env.API_IMAGE || env.GUI_IMAGE }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service == 'api' && env.API_IMAGE || env.GUI_IMAGE }}:${{ github.sha }}
