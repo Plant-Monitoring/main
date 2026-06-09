@@ -9,3 +9,4 @@ __pycache__/
 *.json
 !plants_data.json
 __pycache__/
+ui/plants_data.json

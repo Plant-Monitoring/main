@@ -3,7 +3,6 @@ venv/
 **/venv/
 **/__pycache__/
 *.pyc
-ui/
 docs/
 .git/
 .github/

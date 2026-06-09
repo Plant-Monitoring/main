@@ -9,6 +9,14 @@ from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
+from growth_color_models import GrowthPredictor, ColorPredictor
+try:
+    import torch
+    TORCH_OK = True
+
+except ImportError:
+    TORCH_OK = False
+    print("[Torch] PyTorch not installed — growth/colour prediction unavailable.")
 
 # Plant data
 PLANTS_CSV_DATA = """name,pet_safe,space,water,sunlight,temperature,pollen_allergies,existing_plants
@@ -155,22 +163,25 @@ class PlantRecommendation(BaseModel):
     score:            float
 
 # Plant health detection
+# Full class set kept for the colour-ensemble fallback.
 CNN_CLASSES = [
     "Healthy", "Nutrient Deficiency", "Disease Detected", "Overwatered",
     "Needs Water", "Pest Infestation", "Root Rot", "Dead",
 ]
 CNN_META = {
-    "Healthy":             ("Low",      "#00e5a0", "OK",  "Strong green foliage, no stress signs."),
-    "Needs Water":         ("Medium",   "#4fc3f7", "H2O", "Pale appearance indicates dehydration."),
-    "Overwatered":         ("High",     "#b48eff", "WET", "Dark, waterlogged tissue detected."),
-    "Disease Detected":    ("High",     "#ff5c6a", "BIO", "Browning indicates leaf blight or fungal infection."),
-    "Pest Infestation":    ("Medium",   "#ffd166", "BUG", "Yellow spots with brown specks — pest damage."),
-    "Nutrient Deficiency": ("Medium",   "#ffd166", "NUT", "Yellowing indicates nutrient deficiency."),
-    "Root Rot":            ("High",     "#ff5c6a", "ROT", "Dark tissue at base — root rot."),
-    "Dead":                ("Critical", "#888888", "RIP", "Very little living tissue detected."),
+    "Healthy":             ("Low",      "#00e5a0", "OK",   "Strong green foliage, no stress signs."),
+    "Unhealthy":           ("Medium",   "#ffd166", "WARN", "Signs of stress — wilting or discolouration."),
+    "Needs Water":         ("Medium",   "#4fc3f7", "H2O",  "Pale appearance indicates dehydration."),
+    "Overwatered":         ("High",     "#b48eff", "WET",  "Dark, waterlogged tissue detected."),
+    "Disease Detected":    ("High",     "#ff5c6a", "BIO",  "Browning indicates leaf blight or fungal infection."),
+    "Pest Infestation":    ("Medium",   "#ffd166", "BUG",  "Yellow spots with brown specks — pest damage."),
+    "Nutrient Deficiency": ("Medium",   "#ffd166", "NUT",  "Yellowing indicates nutrient deficiency."),
+    "Root Rot":            ("High",     "#ff5c6a", "ROT",  "Dark tissue at base — root rot."),
+    "Dead":                ("Critical", "#888888", "RIP",  "Very little living tissue detected."),
 }
 CNN_SYMPTOMS = {
     "Healthy":             ["Green healthy foliage", "No yellowing or browning", "Good colour saturation"],
+    "Unhealthy":           ["Wilting or drooping foliage", "Discolouration or loss of firmness", "Reduced green tissue"],
     "Needs Water":         ["Pale, washed-out leaf surface", "Low colour saturation", "Possible wilting"],
     "Overwatered":         ["Dark/blackened tissue", "Possible soft stem", "Brown edges"],
     "Disease Detected":    ["Brown/necrotic tissue", "Possible lesions or tip burn", "Reduced green tissue"],
@@ -181,6 +192,7 @@ CNN_SYMPTOMS = {
 }
 CNN_RECS = {
     "Healthy":             ["Continue current care.", "Rotate every 2 weeks.", "Wipe leaves monthly."],
+    "Unhealthy":           ["Check soil moisture and water if dry.", "Move to appropriate light.", "Inspect for pests or disease.", "Remove damaged leaves."],
     "Needs Water":         ["Water thoroughly until drainage.", "Move to bright indirect light.", "Check soil moisture daily."],
     "Overwatered":         ["Stop watering immediately.", "Inspect and trim rotted roots.", "Repot in well-draining mix."],
     "Disease Detected":    ["Isolate the plant.", "Remove brown leaves with sterilised scissors.", "Apply fungicide/neem oil."],
@@ -190,7 +202,9 @@ CNN_RECS = {
     "Dead":                ["Check for any surviving green stems.", "Cut away dead material.", "Propagate any healthy cuttings."],
 }
 
-CNN_MODEL_PATH = Path("plant_health_cnn.keras")
+CNN_MODEL_PATH = Path(__file__).resolve().parent.parent / "plant_health_cnn.keras"
+# The trained .keras model is binary: index 0 = Healthy, 1 = Unhealthy.
+CNN_BINARY_CLASSES = ["Healthy", "Unhealthy"]
 _model_cache   = None
 _model_lock    = threading.Lock()
 
@@ -207,9 +221,12 @@ def _get_model():
         if CNN_MODEL_PATH.exists():
             try:
                 _model_cache = (tf.keras.models.load_model(str(CNN_MODEL_PATH)), True)
+                print(f"[CNN] Loaded trained model from {CNN_MODEL_PATH}")
                 return _model_cache
-            except Exception:
-                pass
+            except Exception as ex:
+                print(f"[CNN] Failed to load {CNN_MODEL_PATH}: {ex}")
+        else:
+            print(f"[CNN] Model file not found at {CNN_MODEL_PATH}")
         base = EfficientNetB0(input_shape=(224, 224, 3), include_top=False, weights="imagenet")
         base.trainable = False
         inputs = tf.keras.Input(shape=(224, 224, 3))
@@ -257,9 +274,23 @@ def _infer(pil_img):
     from tensorflow.keras.applications.efficientnet import decode_predictions, preprocess_input
     img_resized = pil_img.convert("RGB").resize((224,224))
     arr = np.expand_dims(img_to_array(img_resized), 0)
+    n_out = len(CNN_CLASSES)
+    estimated = False
     if finetuned:
         p = model.predict(arr, verbose=0); idx = int(np.argmax(p[0]))
-        cls = CNN_CLASSES[idx]; conf = max(50, min(93, int(p[0][idx]*100))); acc = "~91-93%"
+        n_out  = int(p.shape[-1])
+        conf = max(50, min(93, int(p[0][idx]*100))); acc = "~90%"
+        if n_out == len(CNN_BINARY_CLASSES):
+            if idx == 0:
+                cls = "Healthy"
+            else:
+                # Trained model says Unhealthy. That call is the reliable, trained
+                # part; here we ESTIMATE the likely cause from a colour heuristic.
+                cause, _ = _colour_diagnosis(pil_img)
+                cls = "Unhealthy" if cause == "Healthy" else cause
+                estimated = True
+        else:
+            cls = CNN_CLASSES[idx]
     else:
         c_cls, c_sc = _colour_diagnosis(pil_img)
         try:
@@ -283,61 +314,54 @@ def _infer(pil_img):
         cls = max(v,key=v.get); norm = v[cls]/(W_C+W_N)
         conf = max(88,min(93,int(88+(norm-0.50)*10))); acc = "~88-91%"
     urgency,color,badge,summary = CNN_META.get(cls,("Low","#888","?","Unknown."))
+    if estimated and cls != "Unhealthy":
+        summary = "Estimated cause (colour analysis): " + summary
+    model_name = "EfficientNetB0 (fine-tuned)"
+    if finetuned and estimated:
+        model_name = "EfficientNetB0 (fine-tuned) + colour-heuristic cause estimate"
+    elif not finetuned:
+        model_name = "EfficientNetB0 + Colour Ensemble"
     return {
         "status": cls, "confidence": conf, "urgency": urgency, "color": color,
         "badge": badge, "summary": summary,
         "symptoms": CNN_SYMPTOMS.get(cls,[]), "recommendations": CNN_RECS.get(cls,[]),
-        "_cnn_info": {"model": "EfficientNetB0 (fine-tuned)" if finetuned else "EfficientNetB0 + Colour Ensemble",
-                      "input_size": "224x224", "classes": len(CNN_CLASSES),
-                      "is_pretrained": finetuned, "accuracy_est": acc},
+        "_cnn_info": {"model": model_name,
+                      "input_size": "224x224", "classes": n_out,
+                      "is_pretrained": finetuned, "estimated_cause": estimated,
+                      "accuracy_est": acc},
     }
 
 # Growth / colour model classes  (inline — no external file needed)
-try:
-    import torch
-    import torch.nn as nn
 
-    class GrowthPredictor(nn.Module):
-        """Simple MLP that predicts height growth (cm) from 9 numeric features."""
-        def __init__(self, input_size: int = 9):
-            super().__init__()
-            self.net = nn.Sequential(
-                nn.Linear(input_size, 128), nn.ReLU(),
-                nn.Linear(128, 64),         nn.ReLU(),
-                nn.Linear(64, 32),          nn.ReLU(),
-                nn.Linear(32, 1),
-            )
-            self.register_buffer("X_mean", torch.zeros(input_size))
-            self.register_buffer("X_std",  torch.ones(input_size))
+class DataVector(BaseModel):
+    days_passed: float
+    avg_direct_light: float
+    avg_indirect_light: float
+    avg_nighttime: float
+    avg_temp: float
+    min_temp: float
+    max_temp: float
+    times_watered: float
+    initial_height: float
+    color_before: List[int]
 
-        def forward(self, x: "torch.Tensor") -> "torch.Tensor":
-            return self.net(x).squeeze(-1)
+# Loading grwoth/color models
 
-    class ColorPredictor(nn.Module):
-        """Simple MLP that predicts plant colour class (5 classes) from 14 features."""
-        def __init__(self, input_size: int = 14, hidden_size: int = 32):
-            super().__init__()
-            self.net = nn.Sequential(
-                nn.Linear(input_size, hidden_size), nn.ReLU(),
-                nn.Linear(hidden_size, hidden_size), nn.ReLU(),
-                nn.Linear(hidden_size, 5),
-            )
-            self.register_buffer("X_mean", torch.zeros(input_size))
-            self.register_buffer("X_std",  torch.ones(input_size))
+growth_model = GrowthPredictor()
+color_model = ColorPredictor()
 
-        def forward(self, x: "torch.Tensor") -> "torch.Tensor":
-            return self.net(x)
+_API_DIR = Path(__file__).resolve().parent
+color_checkpoint = torch.load(_API_DIR / "weights/health_model.pth", weights_only=True)
+growth_checpoint = torch.load(_API_DIR / "weights/regression_model.pth", weights_only=True)
+color_model.load_state_dict(color_checkpoint['model_state'])
+growth_model.out.load_state_dict(growth_checpoint)
 
-    TORCH_OK = True
-    print("[Torch] GrowthPredictor and ColorPredictor defined successfully.")
+X_mean = color_checkpoint['X_mean']
+X_std  = color_checkpoint['X_std']
 
-except ImportError:
-    TORCH_OK = False
-    print("[Torch] PyTorch not installed — growth/colour prediction unavailable.")
-
+   
 # Pydantic model – growth / colour prediction
 class DataVector(BaseModel):
-    user_id:            Optional[int] = None
     days_passed:        float
     avg_direct_light:   float
     avg_indirect_light: float
@@ -349,45 +373,6 @@ class DataVector(BaseModel):
     initial_height:     float
     color_before:       List[int]
 
-# Load / initialise growth models at startup
-_growth_model = None
-_color_model  = None
-
-GROWTH_MODEL_PATH = Path("growth_predictor.pt")
-COLOR_MODEL_PATH  = Path("color_predictor.pt")
-
-def _load_torch_models():
-    global _growth_model, _color_model
-    if not TORCH_OK:
-        print("[Torch] Skipping model load — PyTorch not available.")
-        return
-    try:
-        import torch
-        gm = GrowthPredictor(9)
-        cm = ColorPredictor(14, 32)
-
-        # Load saved weights if checkpoint files exist
-        if GROWTH_MODEL_PATH.exists():
-            state = torch.load(str(GROWTH_MODEL_PATH), map_location="cpu")
-            gm.load_state_dict(state, strict=False)
-            print(f"[Torch] Loaded growth weights from {GROWTH_MODEL_PATH}")
-        else:
-            print("[Torch] No growth checkpoint found — using untrained weights (random predictions).")
-
-        if COLOR_MODEL_PATH.exists():
-            state = torch.load(str(COLOR_MODEL_PATH), map_location="cpu")
-            cm.load_state_dict(state, strict=False)
-            print(f"[Torch] Loaded colour weights from {COLOR_MODEL_PATH}")
-        else:
-            print("[Torch] No colour checkpoint found — using untrained weights (random predictions).")
-
-        gm.eval(); cm.eval()
-        _growth_model = gm
-        _color_model  = cm
-        print("[Torch] Growth and colour models ready.")
-    except Exception as e:
-        print(f"[Torch] Model load failed: {e}")
-
 # FastAPI app
 app = FastAPI(title="Plant Care Unified API", version="2.0.0")
 
@@ -398,10 +383,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-def _startup():
-    _load_torch_models()
-
 @app.get("/", include_in_schema=False)
 def root():
     return RedirectResponse(url="/docs")
@@ -411,9 +392,9 @@ def health():
     return {
         "success": True, "status": "ok", "version": "2.0.0",
         "models": {
-            "detection": "loaded",
-            "growth":    "loaded" if _growth_model else "unavailable",
-            "colour":    "loaded" if _color_model  else "unavailable",
+            "detection": "trained" if CNN_MODEL_PATH.exists() else "fallback",
+            "growth":    "loaded" if growth_model else "unavailable",
+            "colour":    "loaded" if color_model  else "unavailable",
         },
     }
 
@@ -466,47 +447,40 @@ def detect_b64(body: DetectBase64Request):
         return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/fwd")
+    
+# --- Prediction endpoints ---
 @app.post("/growth")
 async def predict_growth(vector: DataVector):
     if not TORCH_OK:
         raise HTTPException(status_code=503,
             detail="PyTorch is not installed. Run: pip install torch")
-    if _growth_model is None or _color_model is None:
+    if growth_model is None or color_model is None:
         raise HTTPException(status_code=503,
             detail="Growth/colour models failed to initialise. Check server logs.")
-    import torch
 
-    numeric = [
-        vector.days_passed, vector.avg_direct_light, vector.avg_indirect_light,
-        vector.avg_nighttime, vector.avg_temp, vector.min_temp, vector.max_temp,
-        vector.times_watered, vector.initial_height,
-    ]
-    color_oh = list(vector.color_before)
+    flat_vector = list(vector.model_dump().values())
+    flat_vector.pop()
+    inp = torch.tensor(flat_vector, dtype=torch.float32).unsqueeze(0)
 
-    inp_growth = torch.tensor(numeric, dtype=torch.float32).unsqueeze(0)
-    inp_color  = torch.tensor(numeric + color_oh, dtype=torch.float32).unsqueeze(0)
+    inp_norm = (inp - X_mean) / (X_std)
+    
+    inp_c = torch.tensor(flat_vector).unsqueeze(0)
+    inp_cb = torch.tensor(vector.color_before).unsqueeze(0)
+    inp_c_norm = (inp_c - X_mean) / (X_std)
+    inp_c_final = torch.cat([inp_c_norm, inp_cb], dim=1)
+    inp_norm = torch.cat([inp_norm, inp_cb], dim=1)
 
-    try:
-        inp_growth_n = (inp_growth - _growth_model.X_mean) / (_growth_model.X_std + 1e-8)
-    except Exception:
-        inp_growth_n = inp_growth
-    try:
-        inp_color_n = (inp_color - _color_model.X_mean) / (_color_model.X_std + 1e-8)
-    except Exception:
-        inp_color_n = inp_color
-
+    growth_model.eval()
+    color_model.eval()
     with torch.no_grad():
-        growth_pred = float(_growth_model(inp_growth_n).item())
-        logits      = _color_model(inp_color_n)
-        color_idx   = int(torch.argmax(torch.softmax(logits, dim=1), dim=1).item())
+        pred = growth_model(inp_norm).item()
 
-    return {
-        "guess": round(growth_pred, 3),
-        "color": color_idx,
-        "inputs": {"numeric": numeric, "color_before": color_oh},
-    }
+        logits = color_model(inp_c_final)
+        probs = torch.softmax(logits, dim=1)
+        color = torch.argmax(probs, dim=1).item()
+    
+    return {"guess" : pred, "color": color}
+
 
 # Entry point
 if __name__ == "__main__":

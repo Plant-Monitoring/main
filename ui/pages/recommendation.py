@@ -1,11 +1,13 @@
 import tkinter as tk
+from tkinter import filedialog, messagebox
+import os
 
 from .theme import (
     BG_MAIN, BG_CARD, BG_CARD2, BG_GLASS, ACCENT, ACCENT2, BLUE, RED, YELLOW, TEXT_PRI,
     TEXT_SEC, TEXT_MUT, BORDER, ON_ACCENT, bind_tree, hover, GreenSlider, BasePage
 )
 from database.plants import df_plants as _df_plants, PANDAS_OK
-from models.recommendation import recommend_plants
+from models.recommendation import recommend_plants, analyze_environment_file
 
 
 class RecommendationSystemPage(BasePage):
@@ -58,6 +60,24 @@ class RecommendationSystemPage(BasePage):
         self._water_var    = slider_row(left_inner, "Water needs (1–10)", 1, 10, 0.5, 5)
         self._sunlight_var = slider_row(left_inner, "Sunlight (1–10)",    1, 10, 0.5, 6)
         self._temp_var     = slider_row(left_inner, "Temperature (°C)",  10, 40, 0.5, 22)
+
+        # ----- File import for light / temperature (overrides sliders) -----
+        file_frame = tk.Frame(left_inner, bg=BG_CARD)
+        file_frame.pack(fill="x", pady=(4, 0))
+        tk.Label(file_frame, text="Or load from light data file:",
+                 font=self.f_small, bg=BG_CARD, fg=TEXT_SEC).pack(anchor="w")
+        btn_row = tk.Frame(file_frame, bg=BG_CARD); btn_row.pack(fill="x", pady=(4,0))
+        file_btn = tk.Frame(btn_row, bg=ACCENT, cursor="hand2", padx=12, pady=5)
+        file_btn.pack(side="left")
+        tk.Label(file_btn, text="📂 Choose File", font=self.f_label,
+                 bg=ACCENT, fg=ON_ACCENT).pack()
+        bind_tree(file_btn, "<Button-1>", lambda e: self._load_light_file())
+        hover(file_btn, ACCENT, ACCENT2)
+        self._file_info_var = tk.StringVar(value="")
+        tk.Label(btn_row, textvariable=self._file_info_var,
+                 font=("Segoe UI",8), bg=BG_CARD, fg=TEXT_MUT,
+                 wraplength=200, justify="left").pack(side="left", padx=(8,0))
+        # ------------------------------------------------------------------
 
         tk.Frame(left_inner, bg=BORDER, height=1).pack(fill="x", pady=(8,10))
 
@@ -137,6 +157,28 @@ class RecommendationSystemPage(BasePage):
         self._results_frame = tk.Frame(right, bg=BG_MAIN)
         self._results_frame.pack(fill="both", expand=True)
         self._show_finder_empty()
+
+    def _load_light_file(self):
+        """Let the user pick a .bin or .npz file and update sunlight / temp sliders."""
+        path = filedialog.askopenfilename(
+            title="Select Light Data File",
+            filetypes=[("Binary/NumPy files", "*.bin *.npz"), ("All files", "*.*")]
+        )
+        if not path:
+            return
+        try:
+            env = analyze_environment_file(path)
+            # Update sliders – values will be clamped to their ranges automatically
+            self._sunlight_var.set(env["sunlight"])
+            if env["temp"] is not None:
+                self._temp_var.set(env["temp"])
+            # Show what was loaded
+            temp_str = f"{env['temp']}°C" if env["temp"] is not None else "—"
+            self._file_info_var.set(
+                f"✔ {os.path.basename(path)}\nLight: {env['sunlight']:.1f}  Temp: {temp_str}"
+            )
+        except Exception as e:
+            messagebox.showerror("File Error", f"Could not read file:\n{e}")
 
     def _show_finder_empty(self):
         for w in self._results_frame.winfo_children(): w.destroy()
