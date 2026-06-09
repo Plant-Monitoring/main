@@ -1,75 +1,37 @@
-# 🌱 Sistem za spremljanje in analizo svetlobnih razmer za zdravje rastlin
+## Veja za priporočilni sistem (`feature/recommendation-system`)
 
-## Pregled projekta
+### Pregled veje
 
-Projekt obravnava razvoj integriranega sistema za spremljanje, analizo in interpretacijo svetlobnih pogojev, ki vplivajo na rast in fiziološko stanje rastlin.
+Veja vsebuje priporočilni sistem, ki na podlagi analiziranih razmer (svetloba, temperatura) predlaga ukrepe za boljšo nego rastline. Sistem uporablja mehko (fuzzy) logiko za določanje pripadnosti razmer in tehtanje priporočil. Veja izhaja iz veje `develop`.
 
-Sistem omogoča:
+### Namen
 
-- zajem svetlobnih podatkov s pomočjo strojnih senzorjev,
-- digitalno obdelavo in filtriranje meritev,
-- analizo svetlobnih parametrov,
-- vizualizacijo rezultatov,
-- podporo odločanju glede optimalnih pogojev za rast rastlin.
+Glavni cilji te veje so:
 
-Cilj je vzpostaviti modularno, razširljivo in merljivo platformo za nadzor svetlobnih pogojev v nadzorovanih okoljih (npr. rastlinjaki, laboratoriji, notranji prostori).
+- na podlagi izmerjenih razmer predlagati konkretne ukrepe za nego rastline,
+- upoštevati mehke (fuzzy) prehode med razmerami namesto ostrih pragov,
+- ponuditi priporočila prek zalednega API-ja in v grafičnem vmesniku.
 
-## Tehnični cilji
+### Vsebina veje
 
-- Implementacija zanesljivega zajema svetlobnih podatkov (real-time ali periodično vzorčenje)
-- Kalibracija in validacija senzorjev
-- Predobdelava podatkov (filtriranje šuma, normalizacija)
-- Analiza svetlobnih pogojev glede na definirane pragove
-- Vizualna predstavitev časovnih serij
-- Modularna arhitektura sistema za nadaljnjo razširljivost
+- modul priporočilnega sistema (mehka logika, pravila in uteži),
+- integracija prek `API/api.py` (končna točka za priporočila),
+- prikaz priporočil v grafičnem vmesniku.
 
-## Arhitektura sistema
+### Delovanje
 
-Sistem je zasnovan modularno in je razdeljen na naslednje komponente:
+1. Sistem prejme analizirane razmere (npr. svetloba, temperatura).
+2. Z mehko (fuzzy) logiko določi pripadnost razmer posameznim območjem.
+3. Na podlagi pravil in uteži sestavi priporočila za nego rastline.
 
-### 1. Zajem podatkov
-- Branje podatkov iz svetlobnih senzorjev
-- Periodično vzorčenje
-- Osnovna validacija meritev
-- Shranjevanje surovih podatkov
+### Pravila uporabe
 
-### 2. Obdelava in analiza
-- Filtriranje in glajenje signalov
-- Izračun ključnih parametrov (intenziteta, povprečja, odstopanja)
-- Primerjava z referenčnimi pragovi
-- Identifikacija potencialnih odstopanj
+- razvoj poteka izključno v tej veji `feature/*`,
+- veja izhaja iz veje `develop` in se vanjo združi po dokončanju,
+- spremembe se ne združujejo neposredno v vejo `main`.
 
-### 3. Vizualizacija
-- Grafični prikaz časovnih serij
-- Prikaz povprečnih vrednosti in trendov
-- Interpretacija rezultatov za uporabnika
+### Trenutno stanje
 
-### 4. Integracija sistema
-- Povezava med strojno in programsko komponento
-- Enotna podatkovna struktura
-- Možnost nadaljnje nadgradnje (npr. avtomatsko prilagajanje svetlobe)
-
-### 5. Testiranje in validacija
-- Funkcionalno testiranje posameznih modulov
-- Preverjanje stabilnosti sistema
-- Dokumentacija delovanja
-
-## Upravljanje verzij (Git struktura)
-
-Projekt uporablja strukturiran razvojni model:
-
-- `main` – stabilna, preverjena verzija
-- `develop` – aktivna razvojna veja
-- `feature/*` – implementacija posameznih funkcionalnosti
-- `bugfix/*` – odprava napak
-
-
-## Trenutno stanje
-
-Projekt je v začetni fazi implementacije.
-
-Trenutno je vzpostavljena:
-
-- osnovna arhitektura repozitorija
-- razvojna struktura (branching model)
-- priprava okolja za zajem in obdelavo podatkov
+- izdelani sta prva in končna različica priporočilnega sistema,
+- sistem je integriran prek FastAPI in povezan z grafičnim vmesnikom,
+- veja je dokončana in pripravljena za združitev v vejo `develop`.
