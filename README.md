@@ -1,4 +1,4 @@
-## Veja za kontejnerizacijo (`feature/dockerization`)
+## Veja za kontejnerizacijo (`dockerization`)
 
 ### Pregled veje
 
