@@ -1,77 +1,31 @@
-# Sistem za spremljanje in analizo svetlobnih razmer za zdravje rastlin
+## Veja za napoved rasti (`feature/growth-color-model`)
 
-## Pregled projekta
+### Pregled veje
 
-Projekt obravnava razvoj integriranega sistema za spremljanje, analizo in interpretacijo svetlobnih pogojev, ki vplivajo na rast in fiziološko stanje rastlin.
+Veja vsebuje model za napoved rasti rastline na podlagi izmerjenih svetlobnih razmer in drugih parametrov. Veja izhaja iz veje `develop`.
 
-Sistem omogoča:
+### Namen
 
-- zajem svetlobnih podatkov s pomočjo strojnih senzorjev
-- digitalno obdelavo in filtriranje meritev
-- analizo svetlobnih parametrov
-- vizualizacijo rezultatov
-- podporo pri odločanju glede optimalnih pogojev za rast rastlin
+Glavni cilji te veje so:
 
-Cilj je vzpostaviti modularno, razširljivo in merljivo platformo za nadzor svetlobnih pogojev v nadzorovanih okoljih (npr. rastlinjaki, laboratoriji, notranji prostori).
+- napovedati pričakovano rast rastline glede na razmere,
+- omogočiti prikaz napovedi v grafičnem vmesniku,
+- ponuditi napoved prek zalednega API-ja.
 
-## Tehnični cilji
+### Vsebina veje
 
-- implementacija zanesljivega zajema svetlobnih podatkov (vzorčenje v realnem času ali periodično)
-- kalibracija in validacija senzorjev
-- predobdelava podatkov (filtriranje šuma, normalizacija)
-- analiza svetlobnih pogojev glede na definirane pragove
-- vizualna predstavitev časovnih serij
-- modularna arhitektura sistema za nadaljnjo razširljivost
+- model za napoved rasti (PyTorch, datoteka `.pt`) v mapi `models/`,
+- integracija prek `API/api.py` (končna točka za napoved rasti in barve),
+- prikaz rezultatov v grafičnem vmesniku.
 
-## Arhitektura sistema
+### Pravila uporabe
 
-Sistem je zasnovan modularno in je razdeljen na naslednje komponente.
+- razvoj poteka izključno v tej veji `feature/*`,
+- veja izhaja iz veje `develop` in se vanjo združi po dokončanju,
+- spremembe se ne združujejo neposredno v vejo `main`.
 
-### 1. Zajem podatkov
+### Trenutno stanje
 
-- branje podatkov iz svetlobnih senzorjev
-- periodično vzorčenje
-- osnovna validacija meritev
-- shranjevanje surovih podatkov
-
-### 2. Obdelava in analiza
-
-- filtriranje in glajenje signalov
-- izračun ključnih parametrov (intenziteta, povprečja, odstopanja)
-- primerjava z referenčnimi pragovi
-- identifikacija potencialnih odstopanj
-
-### 3. Vizualizacija
-
-- grafični prikaz časovnih serij
-- prikaz povprečnih vrednosti in trendov
-- interpretacija rezultatov za uporabnika
-
-### 4. Integracija sistema
-
-- povezava med strojno in programsko komponento
-- enotna podatkovna struktura
-- možnost nadaljnje nadgradnje (npr. samodejno prilagajanje svetlobe)
-
-### 5. Testiranje in validacija
-
-- funkcionalno testiranje posameznih modulov
-- preverjanje stabilnosti sistema
-- dokumentacija delovanja
-
-## Upravljanje različic (struktura Git)
-
-Projekt uporablja strukturiran razvojni model:
-
-- `main` – stabilna, preverjena različica
-- `develop` – aktivna razvojna veja
-- `feature/*` – implementacija posameznih funkcionalnosti
-
-## Trenutno stanje
-
-Projekt je zaključen.
-Trenutno je vzpostavljeno naslednje:
-
-- osnovna arhitektura repozitorija,
-- razvojna struktura (model vej),
-- priprava okolja za zajem in obdelavo podatkov.
+- izdelani sta prva in končna različica modela za napoved rasti,
+- model je integriran prek FastAPI in povezan z grafičnim vmesnikom,
+- veja je dokončana in pripravljena za združitev v vejo `develop`.
