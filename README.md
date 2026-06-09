@@ -1,43 +1,54 @@
-## Razvojna veja (develop)
+## Veja za kontejnerizacijo (`feature/dockerization`)
 
 ### Pregled veje
 
-Veja `develop` predstavlja primarno razvojno in integracijsko okolje projekta.
-V njej se združujejo in validirajo vse nove funkcionalnosti pred vključitvijo v stabilno produkcijsko vejo (`main`).
-
-Gre za centralno integracijsko plast sistema, kjer se preverjajo skladnost, stabilnost in medsebojno delovanje vseh modulov.
+Veja vsebuje kontejnerizacijo sistema z orodjem Docker. Zaledni del (API) in grafični vmesnik (GUI) sta zapakirana v ločena vsebnika, ki ju povezuje `docker-compose`. Veja izhaja iz veje `develop` in se vanjo združi po dokončanju.
 
 ### Namen
 
-Glavni cilji veje `develop` so:
+Glavni cilji te veje so:
 
-- zagotoviti stabilno integracijo funkcionalnosti iz vej `feature/*`
-- omogočiti sistemsko testiranje celotne aplikacije
-- identificirati in odpraviti napake pred izdajo stabilne različice
-- pripraviti preverjeno kodo za prehod v produkcijsko vejo (`main`)
-
-Veja deluje kot kontrolna točka pred produkcijsko izdajo.
+- zagotoviti enako delovanje aplikacije v vseh okoljih (razvoj, testiranje, izvajanje),
+- poenostaviti namestitev in zagon brez ročnega nameščanja odvisnosti,
+- omogočiti ponovljive gradnje slik (images),
+- pripraviti slike za objavo prek poteka CI/CD.
 
 ### Vsebina veje
 
-Veja `develop` vključuje:
+Veja vključuje mapo `docker/` z naslednjimi datotekami:
 
-- integrirane funkcionalnosti iz posameznih modulov (uporabniški vmesnik, analiza podatkov, komunikacijski sloj)
-- izboljšave obstoječih komponent
-- eksperimentalne optimizacije
-- začasne implementacije za validacijo delovanja sistema kot celote
+- `Dockerfile.api` – slika zalednega dela (FastAPI),
+- `Dockerfile.gui` – slika grafičnega vmesnika (Tkinter),
+- `docker-compose.ubuntu.yml` – hkraten zagon obeh vsebnikov,
+- `requirements-*.txt` – odvisnosti za posamezno sliko,
+- `run-ubuntu.sh` – pomožna skripta za zagon v okolju Ubuntu/Linux.
 
 ### Pravila uporabe
 
 Za ohranjanje pregledne razvojne strukture veljajo naslednja pravila:
 
-- nove funkcionalnosti se razvijajo izključno v vejah `feature/*`
-- veja `develop` služi kot integracijsko okolje
-- združevanje (merge) v `main` je dovoljeno samo iz veje `develop`
-- pred združitvijo v `main` morata biti zagotovljeni stabilnost in osnovno testiranje sistema
+- razvoj kontejnerizacije poteka izključno v tej veji `feature/*`,
+- veja izhaja iz veje `develop` in se vanjo združi po dokončanju,
+- spremembe se ne združujejo neposredno v vejo `main`,
+- pred združitvijo se preveri, da se obe sliki uspešno zgradita.
+
+### Zagon
+
+Hkraten zagon API-ja in grafičnega vmesnika prek Dockerja:
+
+```bash
+docker compose -f docker/docker-compose.ubuntu.yml up --build
+```
+
+Zaledni strežnik (API) privzeto teče na vratih 5000, grafični vmesnik pa v ločenem vsebniku.
 
 ### Trenutno stanje
 
-- aktivna integracija posameznih modulov
-- sistemsko testiranje stabilnosti
-- priprava na prvo stabilno izdajo v veji `main`
+- zaledni del (API) in grafični vmesnik (GUI) sta kontejnerizirana,
+- vzpostavljen je `docker-compose` za hkraten zagon obeh vsebnikov,
+- gradnja slik je vključena v potek CI/CD (objava v GitHub Container Registry),
+- veja je dokončana in pripravljena za združitev v vejo `develop`.
+
+### Opomba
+
+Trenutna kontejnerizacija je prilagojena okolju Ubuntu/Linux.
