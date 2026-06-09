@@ -1,77 +1,47 @@
-# Sistem za spremljanje in analizo svetlobnih razmer za zdravje rastlin
+## Veja za neprekinjeno integracijo in dostavo (`feature/CI-CD`)
 
-## Pregled projekta
+### Pregled veje
 
-Projekt obravnava razvoj integriranega sistema za spremljanje, analizo in interpretacijo svetlobnih pogojev, ki vplivajo na rast in fiziološko stanje rastlin.
+Veja vsebuje vzpostavitev poteka CI/CD (neprekinjena integracija in dostava) z orodjem GitHub Actions. Ob vsaki spremembi se koda samodejno preveri, zgradita se obe Docker sliki, ob izdaji v vejo `main` pa se sliki objavita v register vsebnikov. Veja izhaja iz veje `develop`.
 
-Sistem omogoča:
+### Namen
 
-- zajem svetlobnih podatkov s pomočjo strojnih senzorjev
-- digitalno obdelavo in filtriranje meritev
-- analizo svetlobnih parametrov
-- vizualizacijo rezultatov
-- podporo pri odločanju glede optimalnih pogojev za rast rastlin
+Glavni cilji te veje so:
 
-Cilj je vzpostaviti modularno, razširljivo in merljivo platformo za nadzor svetlobnih pogojev v nadzorovanih okoljih (npr. rastlinjaki, laboratoriji, notranji prostori).
+- samodejno preverjanje kode ob vsakem potisku in zahtevku za združitev (pull request),
+- zagotavljanje, da se aplikacija (API in GUI) uspešno zgradi,
+- objava preverjenih slik ob izdaji (release),
+- skrajšanje ročnega dela in zmanjšanje napak pri integraciji.
 
-## Tehnični cilji
+### Vsebina veje
 
-- implementacija zanesljivega zajema svetlobnih podatkov (vzorčenje v realnem času ali periodično)
-- kalibracija in validacija senzorjev
-- predobdelava podatkov (filtriranje šuma, normalizacija)
-- analiza svetlobnih pogojev glede na definirane pragove
-- vizualna predstavitev časovnih serij
-- modularna arhitektura sistema za nadaljnjo razširljivost
+Veja vključuje datoteko `.github/workflows/ci-cd.yml` z naslednjimi opravili (jobs):
 
-## Arhitektura sistema
+- `lint` – preverjanje sintakse (flake8) in oblike kode (black, informativno),
+- `build-images` – gradnja Docker slik za API in GUI (brez objave),
+- `release` – ob potisku v vejo `main` objava slik v GitHub Container Registry (okolje `release`).
 
-Sistem je zasnovan modularno in je razdeljen na naslednje komponente.
+### Potek
 
-### 1. Zajem podatkov
+1. Potisk ali zahtevek za združitev sproži opravili `lint` in `build-images`.
+2. Ob potisku v vejo `main` se zažene še opravilo `release`, ki objavi sliki v register.
+3. Objava poteka prek vgrajenega žetona `GITHUB_TOKEN`, zato dodatne skrivnosti niso potrebne.
 
-- branje podatkov iz svetlobnih senzorjev
-- periodično vzorčenje
-- osnovna validacija meritev
-- shranjevanje surovih podatkov
+### Pravila uporabe
 
-### 2. Obdelava in analiza
+Za ohranjanje pregledne razvojne strukture veljajo naslednja pravila:
 
-- filtriranje in glajenje signalov
-- izračun ključnih parametrov (intenziteta, povprečja, odstopanja)
-- primerjava z referenčnimi pragovi
-- identifikacija potencialnih odstopanj
+- razvoj poteka CI/CD poteka izključno v tej veji `feature/*`,
+- veja izhaja iz veje `develop` in se vanjo združi po dokončanju,
+- objava (release) se izvede šele, ko sprememba doseže vejo `main`.
 
-### 3. Vizualizacija
+### Trenutno stanje
 
-- grafični prikaz časovnih serij
-- prikaz povprečnih vrednosti in trendov
-- interpretacija rezultatov za uporabnika
+- potek CI/CD je vzpostavljen in deluje (`lint` in gradnja slik sta uspešna),
+- opravilo `release` objavi sliki v GitHub Container Registry v okolju `release`,
+- prvotna ročna objava na Docker Hub in namestitev prek SSH sta bili odstranjeni, saj za študentski projekt nista bili potrebni,
+- veja je dokončana in pripravljena za združitev v vejo `develop`.
 
-### 4. Integracija sistema
+### Opomba
 
-- povezava med strojno in programsko komponento
-- enotna podatkovna struktura
-- možnost nadaljnje nadgradnje (npr. samodejno prilagajanje svetlobe)
-
-### 5. Testiranje in validacija
-
-- funkcionalno testiranje posameznih modulov
-- preverjanje stabilnosti sistema
-- dokumentacija delovanja
-
-## Upravljanje različic (struktura Git)
-
-Projekt uporablja strukturiran razvojni model:
-
-- `main` – stabilna, preverjena različica
-- `develop` – aktivna razvojna veja
-- `feature/*` – implementacija posameznih funkcionalnosti
-
-## Trenutno stanje
-
-Projekt je zaključen.
-Trenutno je vzpostavljeno naslednje:
-
-- osnovna arhitektura repozitorija,
-- razvojna struktura (model vej),
-- priprava okolja za zajem in obdelavo podatkov.
+Okolje `release` v zavihku Environments prikazuje uspešne objave slik; prejšnje neuspešne objave v okolju `production` so bile odstranjene.
