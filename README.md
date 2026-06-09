@@ -1,43 +1,42 @@
-## 🔧 Razvojna veja (develop)
+## Veja za zaznavanje zdravja rastlin (`feature/detection`)
 
-### 📌 Pregled veje
+### Pregled veje
 
-Veja `develop` predstavlja primarno razvojno in integracijsko okolje projekta.  
-V tej veji se združujejo in validirajo vse nove funkcionalnosti pred vključitvijo v stabilno produkcijsko vejo (`main`).
+Veja vsebuje sistem za zaznavanje zdravstvenega stanja rastline iz slike. Uporablja naučen konvolucijski model EfficientNetB0 (binarna klasifikacija: zdrava / nezdrava), ob zaznani nezdravi rastlini pa s pomočjo barvne hevristike oceni možen vzrok. Veja izhaja iz veje `develop`.
 
-Gre za centralno integracijsko plast sistema, kjer se preverja skladnost, stabilnost in medsebojno delovanje vseh modulov.
+### Namen
 
-### 🎯 Namen
+Glavni cilji te veje so:
 
-Glavni cilj veje `develop` je:
+- oceniti zdravstveno stanje rastline iz naložene slike,
+- pri nezdravi rastlini predlagati možen vzrok (barvna analiza),
+- integrirati zaznavo v zaledni del (API) in grafični vmesnik.
 
-- zagotoviti stabilno integracijo funkcionalnosti iz `feature/*` vej
-- omogočiti sistemsko testiranje celotne aplikacije
-- identificirati in odpraviti napake pred izdajo stabilne verzije
-- pripraviti preverjeno kodo za prehod v produkcijsko vejo (`main`)
+### Vsebina veje
 
-Veja deluje kot kontrolna točka pred produkcijsko izdajo.
+- `models/detection.py` – sklepanje z modelom in barvna hevristika,
+- `plant_health_cnn.keras` – naučen model (EfficientNetB0, binarna klasifikacija),
+- integracija prek `API/api.py` (končna točka `/api/detect`) in strani za zaznavo v grafičnem vmesniku.
 
-### 🏗️ Vsebina veje
+### Delovanje
 
-Veja `develop` vključuje:
+1. Uporabnik naloži sliko rastline.
+2. Model EfficientNetB0 napove, ali je rastlina zdrava ali nezdrava.
+3. Pri nezdravi rastlini barvna hevristika oceni možen vzrok (npr. pomanjkanje vode, pomanjkanje hranil).
 
-- integrirane funkcionalnosti iz posameznih modulov (uporabniški vmesnik, analiza podatkov, komunikacijski sloj)
-- izboljšave obstoječih komponent
-- eksperimentalne optimizacije
-- začasne implementacije za validacijo delovanja sistema kot celote
+### Pravila uporabe
 
-### 📜 Pravila uporabe
+- razvoj poteka izključno v tej veji `feature/*`,
+- veja izhaja iz veje `develop` in se vanjo združi po dokončanju,
+- spremembe se ne združujejo neposredno v vejo `main`.
 
-Za ohranjanje pregledne razvojne strukture veljajo naslednja pravila:
+### Trenutno stanje
 
-- nove funkcionalnosti se razvijajo izključno v `feature/*` vejah
-- veja `develop` služi kot integracijsko okolje
-- združevanje (merge) v `main` je dovoljeno samo iz veje `develop`
-- pred združitvijo v `main` mora biti zagotovljena stabilnost in osnovno testiranje sistema
+- model je naučen na podatkih celotnih rastlin (binarno: zdrava / nezdrava), z natančnostjo približno 90 % na testni množici,
+- ocena vzroka je hevristična (orientacijska, ne diagnostična),
+- zaznava je integrirana v API in grafični vmesnik,
+- veja je dokončana in pripravljena za združitev v vejo `develop`.
 
-### 🚀 Trenutno stanje
+### Opomba
 
-- aktivna integracija posameznih modulov
-- sistemsko testiranje stabilnosti
-- priprava na prvo stabilno izdajo v veji `main`
+Napoved zdravja je binarna; ocenjeni vzrok temelji na barvni analizi slike in je informativne narave.
