@@ -4,18 +4,17 @@
   <img src="https://img.shields.io/badge/ML-TensorFlow%20%7C%20Keras-FF6F00?logo=tensorflow&logoColor=white" alt="TensorFlow Keras">
   <img src="https://img.shields.io/badge/Model-EfficientNetB0-8E24AA" alt="EfficientNetB0">
   <br>
-  <img src="https://img.shields.io/badge/Vmesnik-Tkinter-4B8BBE" alt="Tkinter">
-  <img src="https://img.shields.io/badge/Senzorji-STM32-03234B?logo=stmicroelectronics&logoColor=white" alt="STM32">
-  <img src="https://img.shields.io/badge/Baza-SQL-336791?logo=postgresql&logoColor=white" alt="Database">
-  <img src="https://img.shields.io/badge/Namestitev-Docker-2496ED?logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/GUI-Tkinter-4B8BBE" alt="Tkinter">
+  <img src="https://img.shields.io/badge/Sensors-STM32-03234B?logo=stmicroelectronics&logoColor=white" alt="STM32">
+  <img src="https://img.shields.io/badge/Database-SQL-336791?logo=postgresql&logoColor=white" alt="Database">
+  <img src="https://img.shields.io/badge/Deploy-Docker-2496ED?logo=docker&logoColor=white" alt="Docker">
   <img src="https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white" alt="CI/CD">
   <br>
-  <img src="https://img.shields.io/badge/Domena-Zdravje%20rastlin-2E7D32" alt="Domain">
-  <img src="https://img.shields.io/badge/Analiza-Svetlobni%20pogoji-F9A825" alt="Analysis">
-  <img src="https://img.shields.io/badge/Reproduktivnost-Docker%20%2B%20GHCR-43A047" alt="Reproducibility">
-  <img src="https://img.shields.io/badge/Status-V%20razvoju-FB8C00" alt="Status">
+  <img src="https://img.shields.io/badge/Domain-Plant%20Health-2E7D32" alt="Domain">
+  <img src="https://img.shields.io/badge/Analysis-Light%20Conditions-F9A825" alt="Analysis">
+  <img src="https://img.shields.io/badge/Reproducibility-Docker%20%2B%20GHCR-43A047" alt="Reproducibility">
+  <img src="https://img.shields.io/badge/Status-Done-4CAF50" alt="Status">
 </p>
-
 # Sistem za spremljanje in analizo svetlobnih razmer za zdravje rastlin
 
 ## Pregled projekta
