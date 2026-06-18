@@ -1,3 +1,21 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/ML-TensorFlow%20%7C%20Keras-FF6F00?logo=tensorflow&logoColor=white" alt="TensorFlow Keras">
+  <img src="https://img.shields.io/badge/Model-EfficientNetB0-8E24AA" alt="EfficientNetB0">
+  <br>
+  <img src="https://img.shields.io/badge/Vmesnik-Tkinter-4B8BBE" alt="Tkinter">
+  <img src="https://img.shields.io/badge/Senzorji-STM32-03234B?logo=stmicroelectronics&logoColor=white" alt="STM32">
+  <img src="https://img.shields.io/badge/Baza-SQL-336791?logo=postgresql&logoColor=white" alt="Database">
+  <img src="https://img.shields.io/badge/Namestitev-Docker-2496ED?logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white" alt="CI/CD">
+  <br>
+  <img src="https://img.shields.io/badge/Domena-Zdravje%20rastlin-2E7D32" alt="Domain">
+  <img src="https://img.shields.io/badge/Analiza-Svetlobni%20pogoji-F9A825" alt="Analysis">
+  <img src="https://img.shields.io/badge/Reproduktivnost-Docker%20%2B%20GHCR-43A047" alt="Reproducibility">
+  <img src="https://img.shields.io/badge/Status-V%20razvoju-FB8C00" alt="Status">
+</p>
+
 # Sistem za spremljanje in analizo svetlobnih razmer za zdravje rastlin
 
 ## Pregled projekta
